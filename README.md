@@ -43,6 +43,7 @@ Benchmarked against the Labelary API on the same set of labels:
 - **PNG & PDF Output** — Monochrome 1-bit PNG or single-page embedded PDF output
 - **CLI Tool** — Convert ZPL/EPL files from the command line with format auto-detection, multi-label support, and customizable label dimensions
 - **HTTP Microservice** — RESTful API for label conversion with format detection via `Content-Type` header; deploy anywhere with Docker or bare metal
+- **Web Playground** — Built-in browser UI at `GET /` — paste or open a `.zpl`/`.epl` file, choose a label size (4×6, 4×4, etc.), render PNG inline, and download PNG or PDF with one click
 - **Embedded Fonts** — Zero runtime font dependencies; bundles Helvetica Bold Condensed, DejaVu Sans Mono, and ZPL GS fonts
 - **Rust Library** — Integrate label rendering directly into your Rust application via the public API
 
@@ -71,7 +72,11 @@ labelize convert label.zpl --width 100 --height 62 --dpmm 12  # custom dimension
 
 ```bash
 labelize serve --port 8080
+```
 
+Open **http://localhost:8080/** in your browser to use the built-in **interactive playground** — paste ZPL/EPL, pick a label size, and render PNG instantly. Download PNG or PDF directly from the page.
+
+```bash
 # Convert via REST API
 curl -X POST http://localhost:8080/convert \
   -H "Content-Type: application/zpl" \
@@ -106,6 +111,7 @@ Serve Options:
 
 | Endpoint       | Method | Description                                   |
 |---------------|--------|-----------------------------------------------|
+| `/`           | GET    | Interactive web playground (browser UI)       |
 | `/health`     | GET    | Health check → `{"status":"ok"}`             |
 | `/convert`    | POST   | Convert label data → PNG or PDF              |
 
@@ -192,9 +198,13 @@ All diff images are in [`testdata/diffs/`](testdata/diffs/) — browse them to r
 ## Testing
 
 ```bash
-cargo test                         # all tests
-cargo test --test e2e              # golden-file E2E tests
-cargo test --test unit             # unit tests
+cargo test                               # all tests
+cargo test --test 'e2e_*'               # golden-file E2E tests
+cargo test --test 'unit_*'             # unit tests
+
+# E2E shell scripts (requires labelize on PATH)
+PATH="$PATH:target/debug" bash e2e/http/test_http.sh   # HTTP microservice tests
+PATH="$PATH:target/debug" bash e2e/cli/test_cli.sh     # CLI tests
 ```
 
 82 golden-file E2E tests compare rendered output pixel-by-pixel against reference PNGs from the Labelary reference renderer.

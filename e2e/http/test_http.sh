@@ -142,6 +142,26 @@ HTTP_CODE=$(curl -s -o /dev/null -w '%{http_code}' \
   -d "")
 assert_eq "empty body returns 400" "400" "$HTTP_CODE"
 
+# 6. Playground page
+echo "[6] GET / playground page"
+HTTP_CODE=$(curl -sf -o "$WORK_DIR/playground.html" -w '%{http_code}' \
+  "http://127.0.0.1:$PORT/")
+assert_eq "GET / returns 200" "200" "$HTTP_CODE"
+
+PLAYGROUND_CT=$(curl -sf -o /dev/null -w '%{content_type}' \
+  "http://127.0.0.1:$PORT/")
+# content_type may include charset suffix, so check with grep
+echo "$PLAYGROUND_CT" | grep -qi "text/html" \
+  && { echo "  ✓ GET / content-type is text/html"; pass=$((pass + 1)); } \
+  || { echo "  ✗ GET / content-type is text/html (got '$PLAYGROUND_CT')"; fail=$((fail + 1)); }
+
+# body must contain the HTML doctype / root element
+grep -qi "<html" "$WORK_DIR/playground.html" \
+  && { echo "  ✓ GET / body contains <html>"; pass=$((pass + 1)); } \
+  || { echo "  ✗ GET / body missing <html>"; fail=$((fail + 1)); }
+
+assert_file_min_size "GET / response is non-trivially large" "$WORK_DIR/playground.html" 2000
+
 echo ""
 echo "=== Results: $pass passed, $fail failed ==="
 [[ "$fail" -eq 0 ]] || exit 1

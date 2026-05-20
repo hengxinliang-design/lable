@@ -225,6 +225,17 @@ async fn serve(host: String, port: u16) {
         Router,
     };
 
+    async fn playground_page() -> impl IntoResponse {
+        (
+            StatusCode::OK,
+            [
+                (header::CONTENT_TYPE, "text/html; charset=utf-8"),
+                (header::CACHE_CONTROL, "no-cache"),
+            ],
+            labelize::playground::PLAYGROUND_HTML,
+        )
+    }
+
     async fn health() -> impl IntoResponse {
         (
             StatusCode::OK,
@@ -335,6 +346,7 @@ async fn serve(host: String, port: u16) {
     }
 
     let app = Router::new()
+        .route("/", get(playground_page))
         .route("/health", get(health))
         .route("/convert", post(convert_handler));
 

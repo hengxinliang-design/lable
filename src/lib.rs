@@ -7,6 +7,7 @@ pub mod error;
 pub mod hex;
 pub mod images;
 pub mod parsers;
+pub mod playground;
 pub mod skill;
 
 pub use drawers::renderer::Renderer;
