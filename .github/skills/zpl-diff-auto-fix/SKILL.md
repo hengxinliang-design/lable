@@ -111,19 +111,20 @@ Before starting, ensure:
 
 11. **Render each snippet** to verify it renders correctly in isolation:
     ```bash
-    cargo run -- convert --width 50 --height 80 --dpmm 8 testdata/unit/<label>_<index>.zpl
+    cargo run -- convert testdata/unit/<label>_<index>.zpl
     ```
-    Unit tests use a smaller canvas (`50×80 mm` at 8 dpmm → `400×640 px`) for easier
-    visual comparison. Carrier labels in `testdata/labels/` use the full Labelary size
-    (`101.625×203.25 mm` → `813×1626 px`).
+    Both unit tests (`testdata/unit/`) and carrier labels (`testdata/labels/`) use the full
+    Labelary canvas (`101.625×203.25 mm` at 8 dpmm → `813×1626 px`). Unit golden PNGs are
+    Labelary references at `812×1624 px` (Labelary rounds by 1 px due to float precision).
 
 12. **Get Labelary reference** for each snippet — post the snippet ZPL to:
     ```
     POST http://api.labelary.com/v1/printers/8dpmm/labels/4.005x8.01/0/
     ```
     Save the reference as `testdata/unit/<label>_<index>_ref.png`.
-    Note: Labelary always renders at 813×1626. The local render uses 400×640 for unit
-    tests, so direct pixel comparison requires resizing the Labelary reference to match.
+    Note: Labelary renders at 812×1624 for our canvas size (1 px smaller than the local
+    renderer's 813×1626 due to floating-point rounding of the inch dimensions). This causes
+    a ~0.25% systematic diff; direct pixel comparison is done over the overlapping region.
 
 13. **Compare snippet renders** — this isolates the rendering difference to a single element
 
