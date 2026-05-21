@@ -5,6 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0] - 2026-05-21
+
+### Added
+
+- **Web Playground** — Built-in browser UI served at `GET /` with ZPL/EPL editor, Labelary-style inch-based label size presets (4×6, 4×4, 4×3, 2×4, 2×2, 3.5×1.5, Custom), inline PNG preview, and one-click PNG/PDF download buttons
+- **Open File Support** — Folder icon button in the playground opens a native file picker for `.zpl`/`.epl` files; format selector auto-detects from file extension
+- **`labels_dir()` / `unit_dir()` Test Helpers** — Added render helper functions for consistent test data directory resolution across all test suites
+- **Release Version Skill** — Reusable `.github/skills/release-version/SKILL.md` skill for cutting reproducible releases
+
+### Fixed
+
+- **`debug_usps_text` Path** — Updated hardcoded test path after testdata reorganization
+
+### Changed
+
+- **Test Data Reorganization** — Split ZPL test fixtures into `testdata/labels/` (carrier/real-world) and `testdata/unit/` (synthetic) subdirectories; flattened snippets into `unit/`; renamed `_ref.png` files to golden PNG convention
+- **Dual Diff Reports** — Split the single diff report into two: `testdata/diffs/diff_report_labels.txt` and `testdata/diffs/diff_report_unit.txt` with separate canvas dimensions
+- **README Render Comparison** — Updated section with current diff statistics and Labelary comparison gallery
+- **Documentation** — Improved clarity of rendering instructions, test assertions, and AGENTS.md workflow documentation
+
 ## [0.5.0] - 2026-05-01
 
 ### Added
