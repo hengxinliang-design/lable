@@ -1,4 +1,6 @@
+use image::{ImageFormat, RgbaImage};
 use sha2::{Digest, Sha256};
+use std::io::Cursor;
 use std::path::PathBuf;
 use std::sync::Mutex;
 use std::time::Instant;
@@ -34,6 +36,38 @@ fn rate_limit() {
         }
     }
     *last = Some(Instant::now());
+}
+
+/// Pad (or crop) a PNG to exactly `target_w × target_h` pixels.
+///
+/// If the source is smaller than the target in either dimension the missing area
+/// is filled with white (fully opaque). If larger it is cropped to fit.
+/// This is used to normalise Labelary responses (which may be off-by-one due to
+/// server-side floating-point rounding) to the exact canvas size our renderer
+/// produces (813×1626), eliminating size-mismatch noise in diff reports.
+pub fn pad_png_to_size(png: &[u8], target_w: u32, target_h: u32) -> Vec<u8> {
+    let src = image::load_from_memory(png)
+        .expect("decode PNG for padding")
+        .to_rgba8();
+
+    if src.width() == target_w && src.height() == target_h {
+        return png.to_vec();
+    }
+
+    let mut canvas = RgbaImage::from_pixel(target_w, target_h, image::Rgba([255, 255, 255, 255]));
+    let copy_w = src.width().min(target_w);
+    let copy_h = src.height().min(target_h);
+    for y in 0..copy_h {
+        for x in 0..copy_w {
+            canvas.put_pixel(x, y, *src.get_pixel(x, y));
+        }
+    }
+
+    let mut buf = Cursor::new(Vec::new());
+    canvas
+        .write_to(&mut buf, ImageFormat::Png)
+        .expect("encode padded PNG");
+    buf.into_inner()
 }
 
 /// Fetch a reference PNG from the Labelary API with caching and rate limiting.

@@ -1,15 +1,65 @@
 mod common;
 
 use common::image_compare;
+use common::labelary_client;
 use common::render_helpers;
 
 /// Maximum allowed pixel-difference percentage for carrier label tests.
 const LABEL_TOLERANCE: f64 = 15.0;
-/// Tolerance for unit/synthetic tests — compared against our own 813×1626 render baseline.
-const UNIT_TOLERANCE: f64 = 8.0; // Labelary returns 812×1624; our renderer produces 813×1626 — 1px dimension difference causes ~0.25% systematic diff; aztec EC differences push up to ~7%
+/// Tolerance for unit/synthetic tests — compared against Labelary reference at 813×1626.
+const UNIT_TOLERANCE: f64 = 8.0;
 
 fn testdata_dir() -> std::path::PathBuf {
     render_helpers::testdata_dir()
+}
+
+/// Target canvas size — matches `default_options()` renderer output (813×1626 px).
+const CANVAS_W: u32 = 813;
+const CANVAS_H: u32 = 1626;
+
+/// Auto-generate a missing golden reference PNG for a ZPL test.
+///
+/// Fetches from the Labelary API using `default_options()` dimensions (101.625 mm ×
+/// 203.25 mm). If Labelary returns a PNG at a different size (e.g. 812×1624 due to
+/// server-side floating-point rounding) it is padded to 813×1626 with white so the
+/// reference always matches the canvas our renderer produces. Falls back to the
+/// renderer when Labelary is unreachable (offline / CI without network).
+fn auto_bootstrap_zpl(content: &str, path: &std::path::Path, name: &str) {
+    let opts = render_helpers::default_options();
+    let width_in = opts.label_width_mm / 25.4;
+    let height_in = opts.label_height_mm / 25.4;
+
+    let png =
+        if let Some(fetched) =
+            labelary_client::labelary_render(content, opts.dpmm as u8, width_in, height_in)
+        {
+            let normalized = labelary_client::pad_png_to_size(&fetched, CANVAS_W, CANVAS_H);
+            eprintln!(
+                "[bootstrap] '{}': fetched from Labelary, normalized to {}×{}",
+                name, CANVAS_W, CANVAS_H
+            );
+            normalized
+        } else {
+            eprintln!(
+                "[bootstrap] '{}': Labelary unavailable — using renderer baseline ({}×{})",
+                name, CANVAS_W, CANVAS_H
+            );
+            render_helpers::render_zpl_to_png(content, opts)
+        };
+
+    std::fs::create_dir_all(path.parent().unwrap()).ok();
+    std::fs::write(path, &png).expect("write auto-generated golden PNG");
+}
+
+/// Auto-generate a missing golden reference PNG for an EPL test.
+///
+/// EPL is not supported by the Labelary API, so the renderer baseline is always used.
+fn auto_bootstrap_epl(content: &str, path: &std::path::Path, name: &str) {
+    eprintln!("[bootstrap] '{}': using renderer baseline for EPL (813×1626)", name);
+    let opts = render_helpers::default_options();
+    let png = render_helpers::render_epl_to_png(content, opts);
+    std::fs::create_dir_all(path.parent().unwrap()).ok();
+    std::fs::write(path, &png).expect("write auto-generated golden PNG");
 }
 
 /// Run a golden-file comparison for a ZPL test case.
@@ -29,13 +79,17 @@ fn golden_zpl_with_tolerance(name: &str, tolerance: f64) {
     };
     let expected = input.with_extension("png");
 
-    if !input.exists() || !expected.exists() {
-        eprintln!("SKIP {}: missing input or golden file", name);
+    if !input.exists() {
+        eprintln!("SKIP {}: missing ZPL input", name);
         return;
     }
 
-    // Unit tests use the same full canvas as label tests; their golden PNGs are 813×1626
-    // rendered from our own renderer (regression baseline, not Labelary).
+    // Auto-generate the reference PNG if it doesn't exist yet.
+    if !expected.exists() {
+        let content = std::fs::read_to_string(&input).expect("read input");
+        auto_bootstrap_zpl(&content, &expected, name);
+    }
+
     let options = render_helpers::default_options();
     let effective_tolerance = if is_unit { UNIT_TOLERANCE } else { tolerance };
     let content = std::fs::read_to_string(&input).expect("read input");
@@ -76,9 +130,15 @@ fn golden_epl_with_tolerance(name: &str, tolerance: f64) {
     let input = dir.join(format!("{}.epl", name));
     let expected = dir.join(format!("{}.png", name));
 
-    if !input.exists() || !expected.exists() {
-        eprintln!("SKIP {}: missing input or golden file", name);
+    if !input.exists() {
+        eprintln!("SKIP {}: missing EPL input", name);
         return;
+    }
+
+    // Auto-generate the reference PNG if it doesn't exist yet.
+    if !expected.exists() {
+        let content = std::fs::read_to_string(&input).expect("read input");
+        auto_bootstrap_epl(&content, &expected, name);
     }
 
     let content = std::fs::read_to_string(&input).expect("read input");
@@ -191,6 +251,18 @@ fn golden_encodings_013() {
 #[test]
 fn golden_fedex() {
     golden_zpl_with_tolerance("fedex", 7.0);
+}
+#[test]
+fn golden_font_p() {
+    golden_zpl("font_p");
+}
+#[test]
+fn golden_font_q() {
+    golden_zpl("font_q");
+}
+#[test]
+fn golden_font_s() {
+    golden_zpl("font_s");
 }
 #[test]
 fn golden_gd_thin_r() {

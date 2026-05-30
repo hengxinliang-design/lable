@@ -112,12 +112,14 @@ fn labelary_gd_default_params() {
     );
 }
 
-/// Download Labelary reference PNGs (812×1624) for every ZPL file in testdata/unit/.
+/// Download Labelary reference PNGs (813×1626) for every ZPL file in testdata/unit/.
+/// Uses default_options() dimensions so the reference size matches our renderer output,
+/// eliminating the systematic size-mismatch diff.
 /// Run with: cargo test --test e2e_labelary update_unit_golden_pngs -- --ignored --nocapture
 #[test]
 #[ignore = "requires network access; updates unit golden PNGs in place"]
 fn update_unit_golden_pngs() {
-    let opts = render_helpers::unit_options();
+    let opts = render_helpers::default_options();
     let width_in = mm_to_inches(opts.label_width_mm);
     let height_in = mm_to_inches(opts.label_height_mm);
     let unit_dir = render_helpers::testdata_dir().join("unit");
@@ -161,7 +163,8 @@ fn update_unit_golden_pngs() {
 }
 
 /// Bootstrap Labelary reference PNGs for any ZPL file that does not yet have a matching PNG.
-/// Scans both testdata/unit/ (→ 812×1624) and testdata/labels/ (→ 813×1626).
+/// Scans both testdata/unit/ (→ 813×1626) and testdata/labels/ (→ 813×1626).
+/// Uses default_options() for both directories so reference size matches our renderer output.
 /// Safe to re-run: existing PNGs are never overwritten.
 ///
 /// Run with:
@@ -182,8 +185,8 @@ fn bootstrap_golden_pngs() {
     let configs = vec![
         DirConfig {
             dir: testdata.join("unit"),
-            opts: render_helpers::unit_options(),
-            label: "unit (812×1624)",
+            opts: render_helpers::default_options(),
+            label: "unit (813×1626)",
         },
         DirConfig {
             dir: testdata.join("labels"),

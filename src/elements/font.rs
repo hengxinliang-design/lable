@@ -54,7 +54,13 @@ impl FontInfo {
     }
 
     pub fn is_standard_font(&self) -> bool {
-        self.name == "0" || bitmap_font_sizes().contains_key(self.name.as_str())
+        self.name == "0"
+            || bitmap_font_sizes().contains_key(self.name.as_str())
+            // Zebra resident scalable fonts (not bitmap, not font-0)
+            || matches!(
+                self.name.as_str(),
+                "P" | "Q" | "R" | "S" | "T" | "U" | "V" | "W" | "X" | "Y" | "Z"
+            )
     }
 
     /// Returns true for Zebra bitmap fonts (A-H, GS), false for the scalable font "0".

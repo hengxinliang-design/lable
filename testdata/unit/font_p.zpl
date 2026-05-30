@@ -1,0 +1,1 @@
+^XA^FO30,30^APN,,30^FDFont P Normal^FS^FO30,80^APR,,30^FDFont P Rotated^FS^XZ
