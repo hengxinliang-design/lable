@@ -190,21 +190,67 @@ Error code standard:
 Print Configuration Gateway manages printers, print routing, and print jobs.
 
 Responsibilities:
-- Store printer network configuration.
-- Manage printer type, DPI, paper size, and supported formats.
-- Route print jobs by warehouse, station, business type, or template.
-- Track print queue status.
-- Support retry, cancel, pause, resume, and reprint.
+- Store printer network and client-side printing configuration.
+- Manage printer IP, port, DPI/DPMM, paper size, model, and supported formats.
+- Bind templates to one or more printers.
+- Route print jobs by warehouse, site, business type, template, and priority.
+- Track print queue status and print task lifecycle.
+- Support retry, pause, resume, cancel, and reprint.
+- Manage print status from queued to completed or failed.
 
 Primary users:
 - IT or warehouse administrators maintaining printers.
 - Operations users monitoring print execution.
 
 Initial scope:
-- Register network printers with IP, port, name, site, and DPI.
-- Send raw ZPL to a configured printer.
+- Register network printers with IP, port, name, site, model, DPI/DPMM, and paper size.
+- Register optional QZ Tray client printers for browser-connected workstations.
+- Bind templates to allowed printers and default printers.
+- Define route rules by warehouse, site, business type, and template.
+- Send raw ZPL to a configured printer through direct network printing or QZ Tray.
+- Queue print tasks and track status.
 - Record print task status and retry count.
-- Support manual reprint from task history.
+- Support retry, pause, resume, cancel, and manual reprint from task history.
+
+Printer configuration:
+- Required fields: printer name, connection type, site, warehouse, model, DPI/DPMM, paper width, paper height, status.
+- Direct network printers require IP and port.
+- QZ Tray printers require workstation/client identity and local printer name.
+- Supported formats should include raw ZPL first, with PDF/PNG print support as future options.
+- Printer health should be checked manually in the minimum version and automatically in later versions.
+
+Template-printer binding:
+- A template can define allowed printers and one default printer.
+- Bindings can override paper size, DPI/DPMM, copies, and print mode for a specific template.
+- The print API should reject printers that are not allowed for the selected template unless an administrator override is used.
+
+Routing rules:
+- Rules can match warehouse, site, business type, template, customer, supplier, and priority.
+- The highest-priority active rule wins.
+- If no rule matches, fall back to the template default printer.
+- If no default printer exists, the print request should fail with a routing error.
+- Route decisions should be recorded on the print task for troubleshooting.
+
+Print queue:
+- Print tasks should be created before dispatch.
+- Initial statuses: `queued`, `dispatching`, `sent`, `completed`, `failed`, `paused`, `canceled`.
+- Queue workers should select tasks by priority, creation time, and printer availability.
+- Failed tasks should store error details and retry eligibility.
+- Pausing a printer should stop dispatching new tasks to that printer without losing queued tasks.
+
+Print task operations:
+- Retry: create a new attempt on the same task when retry limits allow.
+- Pause: pause a queued task or pause dispatch for a printer.
+- Resume: make paused tasks eligible for dispatch again.
+- Cancel: prevent a queued or paused task from printing.
+- Reprint: create a new print task from a completed or failed historical task.
+
+QZ Tray integration option:
+- QZ Tray can be used as an optional local workstation print bridge for browser-based printing.
+- The platform should treat QZ Tray as one print channel beside direct network socket printing.
+- QZ Tray mode is useful when printers are only available from a user's workstation or local network.
+- The API should still create and track print tasks on the server; the browser/client reports dispatch result back to the server.
+- QZ Tray support should include client registration, local printer selection, signed request handling if required, and result callback logging.
 
 ### 5. Interface Logs And Monitoring
 
@@ -551,6 +597,79 @@ Endpoints:
 - `DELETE /api/v1/data-source-configs/{id}`
 - `POST /api/v1/data-source-configs/{id}/test`
 
+### Manage Printers
+
+Endpoints:
+- `GET /api/v1/printers`
+- `POST /api/v1/printers`
+- `GET /api/v1/printers/{id}`
+- `PUT /api/v1/printers/{id}`
+- `POST /api/v1/printers/{id}/enable`
+- `POST /api/v1/printers/{id}/disable`
+- `POST /api/v1/printers/{id}/pause`
+- `POST /api/v1/printers/{id}/resume`
+- `POST /api/v1/printers/{id}/test-print`
+- `DELETE /api/v1/printers/{id}`
+
+Printer search filters:
+- `q`
+- `site`
+- `warehouse`
+- `model`
+- `connection_type`
+- `status`
+
+### Manage Template Printer Bindings
+
+Endpoints:
+- `GET /api/v1/templates/{template_id}/printer-bindings`
+- `POST /api/v1/templates/{template_id}/printer-bindings`
+- `PUT /api/v1/templates/{template_id}/printer-bindings/{binding_id}`
+- `DELETE /api/v1/templates/{template_id}/printer-bindings/{binding_id}`
+
+### Manage Print Routing Rules
+
+Endpoints:
+- `GET /api/v1/print-route-rules`
+- `POST /api/v1/print-route-rules`
+- `GET /api/v1/print-route-rules/{id}`
+- `PUT /api/v1/print-route-rules/{id}`
+- `POST /api/v1/print-route-rules/{id}/enable`
+- `POST /api/v1/print-route-rules/{id}/disable`
+- `DELETE /api/v1/print-route-rules/{id}`
+- `POST /api/v1/print-route-rules/test`
+
+Route test request:
+
+```json
+{
+  "template_id": "shipping_label_v1",
+  "warehouse": "Warehouse A",
+  "site": "Detroit",
+  "business_type": "shipping",
+  "customer": "SAIC USA",
+  "supplier": "Relyans Max Inc."
+}
+```
+
+### Manage Print Tasks
+
+Endpoints:
+- `GET /api/v1/print-tasks`
+- `GET /api/v1/print-tasks/{id}`
+- `POST /api/v1/print-tasks/{id}/retry`
+- `POST /api/v1/print-tasks/{id}/pause`
+- `POST /api/v1/print-tasks/{id}/resume`
+- `POST /api/v1/print-tasks/{id}/cancel`
+- `POST /api/v1/print-tasks/{id}/reprint`
+
+### QZ Tray Client Callbacks
+
+Endpoints:
+- `POST /api/v1/qz/clients/register`
+- `POST /api/v1/qz/clients/{client_id}/printers/sync`
+- `POST /api/v1/qz/print-tasks/{task_id}/dispatch-result`
+
 ## Core Data Model Draft
 
 ### Template
@@ -661,10 +780,54 @@ Fields:
 - `id`
 - `name`
 - `site`
+- `warehouse`
+- `connection_type`: `network_socket` or `client_qz_tray`
 - `ip`
 - `port`
+- `client_id`
+- `local_printer_name`
 - `model`
 - `dpmm`
+- `paper_width_mm`
+- `paper_height_mm`
+- `supported_formats`
+- `status`
+- `paused`
+- `last_health_check_at`
+- `last_health_status`
+- `created_at`
+- `updated_at`
+
+### Template Printer Binding
+
+Fields:
+- `id`
+- `template_id`
+- `printer_id`
+- `is_default`
+- `allowed`
+- `override_dpmm`
+- `override_paper_width_mm`
+- `override_paper_height_mm`
+- `default_copies`
+- `print_mode`
+- `status`
+- `created_at`
+- `updated_at`
+
+### Print Route Rule
+
+Fields:
+- `id`
+- `name`
+- `priority`
+- `warehouse`
+- `site`
+- `business_type`
+- `template_id`
+- `customer`
+- `supplier`
+- `printer_id`
 - `status`
 - `created_at`
 - `updated_at`
@@ -689,11 +852,49 @@ Fields:
 - `request_id`
 - `template_id`
 - `printer_id`
+- `route_rule_id`
+- `channel`: `network_socket` or `client_qz_tray`
 - `raw_payload`
 - `copies`
+- `priority`
 - `status`
 - `retry_count`
+- `max_retries`
 - `error_message`
+- `queued_at`
+- `dispatched_at`
+- `completed_at`
+- `canceled_at`
+- `created_at`
+- `updated_at`
+
+### Print Task Attempt
+
+Fields:
+- `id`
+- `print_task_id`
+- `attempt_no`
+- `status`
+- `channel`
+- `printer_id`
+- `client_id`
+- `started_at`
+- `finished_at`
+- `error_message`
+- `created_at`
+- `updated_at`
+
+### QZ Tray Client
+
+Fields:
+- `id`
+- `name`
+- `site`
+- `warehouse`
+- `workstation_name`
+- `user_name`
+- `status`
+- `last_seen_at`
 - `created_at`
 - `updated_at`
 
@@ -777,10 +978,14 @@ The current repository can start by extending the existing HTTP service graduall
 
 ### Phase 4: Print Gateway
 
-- Add printer configuration.
-- Add raw ZPL print dispatch.
-- Add print task queue and retry.
-- Add reprint workflow.
+- Add printer configuration management for IP, port, DPI/DPMM, paper size, model, site, warehouse, and status.
+- Add template-printer binding.
+- Add routing rules by warehouse, site, business type, template, customer, and supplier.
+- Add raw ZPL print dispatch through direct network printing.
+- Add optional QZ Tray client print channel.
+- Add print task queue with priority and printer availability checks.
+- Add retry, pause, resume, cancel, and reprint workflows.
+- Add print status management and task attempt history.
 
 ### Phase 5: Monitoring Console
 
