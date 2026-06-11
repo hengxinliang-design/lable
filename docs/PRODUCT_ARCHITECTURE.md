@@ -124,9 +124,11 @@ API Encapsulation exposes label rendering and printing as stable service APIs.
 Responsibilities:
 - Provide REST APIs for rendering, template lookup, and print requests.
 - Offer an API test console for internal users.
+- Generate request examples from confirmed template fields and data source configurations.
 - Normalize request/response formats and error codes.
 - Support authentication and request tracing.
 - Return PNG, PDF, raw ZPL, or print task IDs.
+- Validate request parameters before rendering or printing.
 
 Primary users:
 - Business systems that need label rendering or printing.
@@ -135,9 +137,53 @@ Primary users:
 Initial scope:
 - `POST /api/v1/labels/render`
 - `POST /api/v1/labels/print`
+- `POST /api/v1/labels/batch-render`
 - `GET /api/v1/templates`
 - `GET /api/v1/requests/{request_id}`
 - A simple API test page that can submit JSON and preview output.
+
+API test console:
+- Let users select a template and data source configuration.
+- Auto-generate a request body from confirmed `api_field` definitions.
+- Show editable request JSON with defaults, required fields, and field descriptions.
+- Let users choose output type: `png`, `pdf`, `zpl`, or `print_task`.
+- Run test requests against the local API service.
+- Show response headers, status code, response body, output preview, and request ID.
+- Show validation errors beside the matching request fields.
+- Save successful test cases as reusable integration examples.
+
+Request example generation:
+- Generate cURL, JavaScript `fetch`, Python `requests`, and raw JSON examples.
+- Include authentication headers and request ID header examples.
+- Use confirmed template fields and data source configuration defaults.
+- Highlight required fields and optional fields separately.
+- Allow users to copy examples from the API test console.
+
+Authentication:
+- Support API keys for business system calls in the minimum version.
+- Require `Authorization: Bearer <api_key>` for protected endpoints.
+- Support an optional `X-Request-Id` header supplied by callers; generate one when missing.
+- Store API key owner, status, allowed scopes, last used time, and expiration time.
+- Define scopes such as `labels:render`, `labels:print`, `templates:read`, and `logs:read`.
+
+Parameter validation:
+- Validate required fields, field types, max length, allowed values, numeric ranges, and output type.
+- Validate template status and data source configuration status before rendering.
+- Validate printer availability before creating print tasks.
+- Return row-level errors for batch requests.
+- Never start rendering or printing when top-level request validation fails.
+
+Output behavior:
+- `png`: return an output URL and optionally inline binary download endpoint.
+- `pdf`: return an output URL and optionally inline binary download endpoint.
+- `zpl`: return the final merged ZPL after field replacement.
+- `print_task`: enqueue a print task and return the task ID.
+
+Error code standard:
+- Use stable application error codes in addition to HTTP status codes.
+- Return one consistent error response shape for validation, authentication, rendering, data mapping, and printing failures.
+- Include `request_id` in every error response for log lookup.
+- Keep error messages user-readable while preserving technical detail in server logs.
 
 ### 4. Print Configuration Gateway
 
@@ -253,6 +299,7 @@ Request:
 {
   "template_id": "shipping_label_v1",
   "output": "png",
+  "response_mode": "url",
   "size": {
     "width_mm": 102,
     "height_mm": 152,
@@ -279,6 +326,15 @@ Response:
   "output_url": "/api/v1/requests/req_01H00000000000000000000000/output"
 }
 ```
+
+Supported `output` values:
+- `png`
+- `pdf`
+- `zpl`
+
+Supported `response_mode` values:
+- `url`: return an output URL.
+- `inline`: return the output directly when practical.
 
 ### Print Label
 
@@ -308,6 +364,101 @@ Response:
   "status": "queued"
 }
 ```
+
+### API Example Generation
+
+`POST /api/v1/api-examples`
+
+Request:
+
+```json
+{
+  "template_id": "shipping_label_v1",
+  "data_source_config_id": "dsc_warehouse_a_shipping",
+  "operation": "render",
+  "language": "curl",
+  "output": "png"
+}
+```
+
+Response:
+
+```json
+{
+  "template_id": "shipping_label_v1",
+  "operation": "render",
+  "language": "curl",
+  "example": "curl -X POST https://label.example.com/api/v1/labels/render -H 'Authorization: Bearer <api_key>' -H 'Content-Type: application/json' -d '{...}'"
+}
+```
+
+### API Test Run
+
+`POST /api/v1/api-tests/run`
+
+Request:
+
+```json
+{
+  "operation": "render",
+  "request_body": {
+    "template_id": "shipping_label_v1",
+    "output": "png",
+    "data": {
+      "order_no": "SO-10001"
+    }
+  }
+}
+```
+
+Response:
+
+```json
+{
+  "request_id": "req_01H00000000000000000000002",
+  "status_code": 200,
+  "status": "success",
+  "output_preview_url": "/api/v1/requests/req_01H00000000000000000000002/output"
+}
+```
+
+### Error Response Format
+
+All API errors should use one response shape:
+
+```json
+{
+  "request_id": "req_01H00000000000000000000003",
+  "status": "error",
+  "error": {
+    "code": "VALIDATION_REQUIRED_FIELD",
+    "message": "Required field is missing: order_no",
+    "details": [
+      {
+        "field": "data.order_no",
+        "reason": "required"
+      }
+    ]
+  }
+}
+```
+
+Initial error codes:
+- `AUTH_MISSING_TOKEN`
+- `AUTH_INVALID_TOKEN`
+- `AUTH_SCOPE_DENIED`
+- `VALIDATION_REQUIRED_FIELD`
+- `VALIDATION_INVALID_TYPE`
+- `VALIDATION_INVALID_OUTPUT`
+- `TEMPLATE_NOT_FOUND`
+- `TEMPLATE_INACTIVE`
+- `DATA_SOURCE_CONFIG_NOT_FOUND`
+- `DATA_MAPPING_FAILED`
+- `RENDER_FAILED`
+- `PRINTER_NOT_FOUND`
+- `PRINTER_UNAVAILABLE`
+- `PRINT_TASK_FAILED`
+- `BATCH_ROW_VALIDATION_FAILED`
 
 ### Batch Render Labels
 
@@ -455,6 +606,36 @@ Fields:
 - `created_at`
 - `updated_at`
 
+### API Key
+
+Fields:
+- `id`
+- `name`
+- `owner`
+- `key_hash`
+- `scopes`
+- `status`
+- `expires_at`
+- `last_used_at`
+- `created_at`
+- `updated_at`
+
+### API Test Case
+
+Fields:
+- `id`
+- `name`
+- `template_id`
+- `data_source_config_id`
+- `operation`
+- `request_body`
+- `expected_output_type`
+- `last_status`
+- `last_request_id`
+- `created_by`
+- `created_at`
+- `updated_at`
+
 ### Template Field
 
 Fields:
@@ -585,21 +766,30 @@ The current repository can start by extending the existing HTTP service graduall
 - Add batch render jobs with row-level validation.
 - Add output download for batch label results.
 
-### Phase 3: Print Gateway
+### Phase 3: API Integration Workbench
+
+- Add API test console.
+- Add request example generation for cURL, JavaScript, Python, and raw JSON.
+- Add API key authentication and scope checks.
+- Add unified request validation.
+- Add stable error response format and error codes.
+- Add API test case save and rerun.
+
+### Phase 4: Print Gateway
 
 - Add printer configuration.
 - Add raw ZPL print dispatch.
 - Add print task queue and retry.
 - Add reprint workflow.
 
-### Phase 4: Monitoring Console
+### Phase 5: Monitoring Console
 
 - Add searchable request logs.
 - Add print task detail pages.
 - Add metrics dashboard.
 - Add alert hooks for repeated failures.
 
-### Phase 5: Advanced Designer
+### Phase 6: Advanced Designer
 
 - Add brand-new label drawing from a blank canvas.
 - Add field-aware template editing.
