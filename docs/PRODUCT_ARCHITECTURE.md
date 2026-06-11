@@ -258,11 +258,11 @@ Interface Logs And Monitoring tracks API calls, render results, and print execut
 
 Responsibilities:
 - Record API requests and responses.
-- Record render duration, template version, and output format.
-- Record print task lifecycle events.
-- Provide filtering by time, template, printer, status, and request ID.
-- Surface error details for troubleshooting.
-- Provide dashboard metrics for success rate, failure rate, and latency.
+- Record render duration, template version, output format, and render errors.
+- Record print task lifecycle events, attempts, retries, and final status.
+- Provide filtering by template, API endpoint, printer, status, time range, and request ID.
+- Surface error details and retry history for troubleshooting.
+- Provide dashboard metrics for success rate, failure rate, duration, latency, and call volume.
 
 Primary users:
 - Support users troubleshooting failed labels.
@@ -271,8 +271,39 @@ Primary users:
 
 Initial scope:
 - Persist request logs for render and print APIs.
-- Show request status, duration, error message, and related task ID.
-- Provide basic search and detail pages.
+- Persist render logs for every label render attempt.
+- Persist print task logs and retry attempts.
+- Show request status, duration, error message, related render ID, and related print task ID.
+- Provide searchable log list pages and detail pages.
+- Provide a dashboard for success rate, failure rate, average duration, p95 duration, and call volume.
+
+API request logs:
+- Capture method, path, endpoint name, request ID, caller, API key ID, status code, duration, request payload summary, response summary, and error code.
+- Redact sensitive values before storing request and response details.
+- Link each API log to render logs, batch jobs, and print tasks when applicable.
+
+Render logs:
+- Capture template ID, template version, output type, data source configuration, merged field values summary, duration, output path, status, and error details.
+- Store render errors separately from API validation errors so rendering engine issues can be diagnosed.
+- Record the `labelize` options used for rendering, including width, height, and DPMM.
+
+Print task logs:
+- Capture queue status transitions, selected printer, route rule, channel, retries, attempts, dispatch result, and final status.
+- Link every retry to a print task attempt.
+- Preserve the original print task and create clear history for reprint tasks.
+
+Search and filtering:
+- Common filters: time range, status, request ID, template, endpoint, printer, warehouse, site, business type, output type, and error code.
+- API logs should filter by endpoint, caller, API key, status code, and duration range.
+- Render logs should filter by template, output type, render status, and duration range.
+- Print logs should filter by printer, route rule, task status, retry count, and channel.
+
+Dashboard:
+- Show total calls, render count, print count, success rate, failure rate, average duration, p95 duration, and call volume trend.
+- Break down metrics by template, endpoint, printer, warehouse, and error code.
+- Show recent failures and top recurring errors.
+- Show queue depth and failed print task count.
+- Allow time ranges such as last 15 minutes, 1 hour, 24 hours, 7 days, and custom range.
 
 ## System Data Flow
 
@@ -670,6 +701,32 @@ Endpoints:
 - `POST /api/v1/qz/clients/{client_id}/printers/sync`
 - `POST /api/v1/qz/print-tasks/{task_id}/dispatch-result`
 
+### Logs And Monitoring
+
+Endpoints:
+- `GET /api/v1/logs/api-requests`
+- `GET /api/v1/logs/api-requests/{id}`
+- `GET /api/v1/logs/renders`
+- `GET /api/v1/logs/renders/{id}`
+- `GET /api/v1/logs/print-tasks`
+- `GET /api/v1/logs/print-tasks/{id}`
+- `GET /api/v1/logs/errors`
+- `GET /api/v1/dashboard/summary`
+- `GET /api/v1/dashboard/timeseries`
+
+Common log filters:
+- `request_id`
+- `template_id`
+- `endpoint`
+- `printer_id`
+- `warehouse`
+- `site`
+- `business_type`
+- `status`
+- `error_code`
+- `from`
+- `to`
+
 ## Core Data Model Draft
 
 ### Template
@@ -832,17 +889,58 @@ Fields:
 - `created_at`
 - `updated_at`
 
-### Render Request Log
+### API Request Log
 
 Fields:
 - `id`
+- `request_id`
+- `method`
+- `path`
+- `endpoint`
+- `caller`
+- `api_key_id`
+- `status_code`
+- `duration_ms`
+- `request_summary`
+- `response_summary`
+- `error_code`
+- `error_message`
+- `related_render_id`
+- `related_batch_job_id`
+- `related_print_task_id`
+- `created_at`
+
+### Render Log
+
+Fields:
+- `id`
+- `request_id`
 - `template_id`
 - `template_version`
 - `output_type`
-- `request_payload`
+- `data_source_config_id`
+- `render_options`
+- `merged_values_summary`
+- `output_path`
 - `status`
 - `duration_ms`
+- `error_code`
 - `error_message`
+- `created_at`
+
+### Error Log
+
+Fields:
+- `id`
+- `request_id`
+- `source`: `api`, `render`, `print`, `data_mapping`, or `system`
+- `code`
+- `message`
+- `details`
+- `template_id`
+- `printer_id`
+- `print_task_id`
+- `render_log_id`
 - `created_at`
 
 ### Print Task
@@ -989,9 +1087,13 @@ The current repository can start by extending the existing HTTP service graduall
 
 ### Phase 5: Monitoring Console
 
-- Add searchable request logs.
-- Add print task detail pages.
-- Add metrics dashboard.
+- Add searchable API request logs.
+- Add render logs with template, output type, duration, and error detail.
+- Add print task logs with attempts, retries, and status history.
+- Add error detail pages linked by request ID.
+- Add filters by template, endpoint, printer, warehouse, site, time range, status, and error code.
+- Add dashboard metrics for success rate, failure rate, average duration, p95 duration, and call volume.
+- Add print queue depth and failed print task widgets.
 - Add alert hooks for repeated failures.
 
 ### Phase 6: Advanced Designer
