@@ -8,6 +8,8 @@ pub mod hex;
 pub mod images;
 pub mod parsers;
 #[cfg(feature = "serve")]
+pub mod platform;
+#[cfg(feature = "serve")]
 pub mod playground;
 
 #[cfg(feature = "skill")]

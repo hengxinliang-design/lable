@@ -370,10 +370,12 @@ async fn serve(host: String, port: u16) {
         }
     }
 
+    let platform_state = labelize::platform::PlatformState::new();
     let app = Router::new()
         .route("/", get(playground_page))
         .route("/health", get(health))
-        .route("/convert", post(convert_handler));
+        .route("/convert", post(convert_handler))
+        .merge(labelize::platform::router(platform_state));
 
     let addr = format!("{}:{}", host, port);
     println!("Starting server on {}", addr);
