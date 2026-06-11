@@ -14,6 +14,7 @@ Label Design manages templates and preview workflows.
 
 Responsibilities:
 - Store ZPL/EPL templates and metadata.
+- Create labels from imported ZPL first, then support brand-new visual drawing later.
 - Preview labels as PNG/PDF through `labelize`.
 - Bind template variables to sample data.
 - Keep template versions and change history.
@@ -25,10 +26,23 @@ Primary users:
 - Developers who need to test template changes quickly.
 
 Initial scope:
-- Upload or paste a ZPL template.
+- Upload or paste an existing ZPL template.
+- Normalize the imported ZPL as the first editable template version.
+- Support light secondary editing on the imported ZPL.
 - Save template name, label size, DPI/DPMM, and description.
 - Render preview with JSON sample data.
 - Keep a small set of test samples per template.
+
+Creation modes:
+- Existing ZPL import: primary mode for the minimum version.
+- New visual drawing: future mode after the imported-template workflow is stable.
+
+Minimum editing model:
+- Keep the original ZPL content intact as the source snapshot.
+- Create a working copy for secondary edits.
+- Use `labelize` to parse and render the working copy after every save or preview.
+- Record each saved edit as a new template version.
+- Treat variable extraction and field binding as an enhancement on top of imported ZPL, not a blocker for initial preview.
 
 ### 2. Data Source Processing
 
@@ -149,7 +163,9 @@ Network Printer
 The first milestone should prove the complete render path before expanding print operations.
 
 MVP capabilities:
-- Create and store a ZPL template.
+- Import and store an existing ZPL template.
+- Preserve the original uploaded ZPL as a source snapshot.
+- Create an editable working copy for secondary processing.
 - Submit JSON sample data.
 - Render preview using `labelize`.
 - Return PNG or PDF through API.
@@ -158,10 +174,20 @@ MVP capabilities:
 
 Out of scope for MVP:
 - Full visual designer.
+- Brand-new label drawing from a blank canvas.
 - Complex Excel mapping.
 - Advanced print queue management.
 - Real-time dashboards.
 - Role-based permissions beyond basic API authentication.
+
+Initial Label Design workflow:
+- Upload ZPL file.
+- Detect format and basic label settings.
+- Save template metadata and original ZPL.
+- Render baseline preview.
+- Apply secondary edits to the working ZPL copy.
+- Save as a new template version.
+- Attach sample data and expected preview output for regression checks.
 
 ## Candidate API Design
 
@@ -237,6 +263,8 @@ Fields:
 - `name`
 - `format`: `zpl` or `epl`
 - `content`
+- `source_content`
+- `creation_mode`: `imported_zpl` or `visual_drawing`
 - `width_mm`
 - `height_mm`
 - `dpmm`
@@ -325,6 +353,8 @@ The current repository can start by extending the existing HTTP service graduall
 ### Phase 1: Render Service Foundation
 
 - Define template storage model.
+- Add imported ZPL template storage.
+- Preserve original ZPL and editable working ZPL separately.
 - Add render API using template ID and JSON data.
 - Add request logging.
 - Add sample template management.
@@ -353,6 +383,7 @@ The current repository can start by extending the existing HTTP service graduall
 
 ### Phase 5: Advanced Designer
 
+- Add brand-new label drawing from a blank canvas.
 - Add field-aware template editing.
 - Add variable hints and validation.
 - Add semi-visual layout assistance.
@@ -365,3 +396,4 @@ The current repository can start by extending the existing HTTP service graduall
 - Should print dispatch talk directly to printers from the API service, or through a dedicated worker process?
 - What authentication model is required for internal users and external business systems?
 - Which label formats beyond ZPL/EPL must be supported later?
+- How should imported ZPL variables be marked: custom placeholders, ZPL field numbers, or external mapping rules?
