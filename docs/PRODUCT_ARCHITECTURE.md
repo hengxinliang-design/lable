@@ -46,11 +46,16 @@ Minimum editing model:
 
 ### 2. Data Source Processing
 
-Data Source Processing converts business data into template-ready payloads.
+Data Source Processing converts parsed ZPL content and business data into template-ready payloads.
+
+For the minimum version, this module starts from the imported ZPL template itself. The system should use `labelize` to read and parse the ZPL structure, extract editable data-bearing elements, and generate a formatted field confirmation form. A user then confirms which values are manually keyed and which values should be supplied by external form/API fields.
 
 Responsibilities:
-- Import CSV, Excel, JSON, or API response data.
-- Map business fields to template variables.
+- Parse imported ZPL through `labelize` and extract candidate data fields.
+- Build a formatted field confirmation form from parsed ZPL content.
+- Let users classify each field as manual input, API/form input, fixed text, or ignored.
+- Map confirmed API/form fields to template variables.
+- Import CSV, Excel, JSON, or API response data after the field model is confirmed.
 - Validate required fields and data types.
 - Apply formatting rules, default values, and transformations.
 - Generate batch label payloads.
@@ -60,10 +65,28 @@ Primary users:
 - Integration developers mapping external systems to labels.
 
 Initial scope:
-- Accept JSON and CSV as input.
-- Define field mapping rules.
+- Extract candidate fields from imported ZPL text and barcode elements.
+- Display normalized field rows for human confirmation.
+- Mark fields as `manual`, `api_field`, `fixed`, or `ignored`.
+- Define field mapping rules after confirmation.
+- Accept JSON input for API-driven fields.
 - Validate required fields before rendering.
-- Produce one render payload per data row.
+- Produce one render payload from manually keyed values plus API-provided values.
+
+Field confirmation workflow:
+- Parse the imported ZPL working copy with `labelize`.
+- Extract candidate values from text fields, barcodes, and 2D codes.
+- Normalize each candidate into a field row with label, current value, element type, position, and suggested source.
+- Let the user confirm field source and field name.
+- For manual fields, store the confirmed value in the template configuration or require an operator to key it before rendering.
+- For API/form fields, expose the confirmed field name in the render/print API request schema.
+- Re-render the label after applying confirmed values to verify the output.
+
+Field source types:
+- `manual`: value is entered by an operator in the management UI.
+- `api_field`: value is supplied by the caller through API payload.
+- `fixed`: value stays unchanged as part of the template.
+- `ignored`: parsed candidate is not part of the business field model.
 
 ### 3. API Encapsulation And Testing
 
@@ -210,6 +233,9 @@ Request:
     "order_no": "SO-10001",
     "sku": "ABC-001",
     "barcode": "1234567890"
+  },
+  "manual_values": {
+    "operator_note": "checked"
   }
 }
 ```
@@ -295,6 +321,25 @@ Fields:
 - `created_at`
 - `updated_at`
 
+### Template Field
+
+Fields:
+- `id`
+- `template_id`
+- `template_version`
+- `field_name`
+- `display_name`
+- `source_type`: `manual`, `api_field`, `fixed`, or `ignored`
+- `element_type`: `text`, `barcode`, `datamatrix`, `qrcode`, or `unknown`
+- `zpl_command`
+- `original_value`
+- `default_value`
+- `required`
+- `position`
+- `format_rules`
+- `created_at`
+- `updated_at`
+
 ### Printer
 
 Fields:
@@ -363,6 +408,9 @@ The current repository can start by extending the existing HTTP service graduall
 ### Phase 2: Template And Data Management
 
 - Add template versioning.
+- Add ZPL field extraction from imported templates.
+- Add field confirmation form.
+- Add manual/API/fixed/ignored field source classification.
 - Add JSON/CSV data source import.
 - Add field mapping and validation.
 - Add batch render jobs.
@@ -397,3 +445,4 @@ The current repository can start by extending the existing HTTP service graduall
 - What authentication model is required for internal users and external business systems?
 - Which label formats beyond ZPL/EPL must be supported later?
 - How should imported ZPL variables be marked: custom placeholders, ZPL field numbers, or external mapping rules?
+- Which parsed ZPL elements should become candidate fields automatically: all `^FD` values, only text/barcodes, or only user-selected elements?
