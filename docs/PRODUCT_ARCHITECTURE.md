@@ -147,8 +147,11 @@ API test console:
 - Auto-generate a request body from confirmed `api_field` definitions.
 - Show editable request JSON with defaults, required fields, and field descriptions.
 - Let users choose output type: `png`, `pdf`, `zpl`, or `print_task`.
+- Let business users submit test data and generate a PDF label without sending anything to a physical printer.
+- Let technical users switch the same request from PDF test output to configured printer dispatch.
 - Run test requests against the local API service.
 - Show response headers, status code, response body, output preview, and request ID.
+- Show a PDF preview/download link when the test output is `pdf`.
 - Show validation errors beside the matching request fields.
 - Save successful test cases as reusable integration examples.
 
@@ -178,6 +181,12 @@ Output behavior:
 - `pdf`: return an output URL and optionally inline binary download endpoint.
 - `zpl`: return the final merged ZPL after field replacement.
 - `print_task`: enqueue a print task and return the task ID.
+- `pdf_test`: generate a PDF from the same label data for business validation without printer dispatch.
+
+Delivery modes:
+- `render_only`: generate PNG, PDF, or ZPL without creating a print task.
+- `pdf_preview`: generate a PDF for business testing and approval.
+- `device_print`: route the generated raw ZPL through the print configuration gateway.
 
 Error code standard:
 - Use stable application error codes in addition to HTTP status codes.
@@ -207,6 +216,7 @@ Initial scope:
 - Register optional QZ Tray client printers for browser-connected workstations.
 - Bind templates to allowed printers and default printers.
 - Define route rules by warehouse, site, business type, and template.
+- Allow the same print request to produce a PDF preview instead of dispatching to a printer.
 - Send raw ZPL to a configured printer through direct network printing or QZ Tray.
 - Queue print tasks and track status.
 - Record print task status and retry count.
@@ -244,6 +254,13 @@ Print task operations:
 - Resume: make paused tasks eligible for dispatch again.
 - Cancel: prevent a queued or paused task from printing.
 - Reprint: create a new print task from a completed or failed historical task.
+
+PDF preview mode:
+- PDF preview mode uses the same template, data mapping, validation, and rendering path as real printing.
+- It should not create a physical print dispatch attempt.
+- It should create request and render logs so business test activity remains traceable.
+- It should return a PDF URL that business users can download and review.
+- An approved PDF preview can be used as the last test case before enabling device printing.
 
 QZ Tray integration option:
 - QZ Tray can be used as an optional local workstation print bridge for browser-based printing.
@@ -344,6 +361,7 @@ MVP capabilities:
 - Submit JSON sample data.
 - Render preview using `labelize`.
 - Return PNG or PDF through API.
+- Generate a PDF label from POSTed test data for business validation.
 - Record request logs.
 - Keep generated output linked to the request ID.
 
@@ -375,7 +393,7 @@ Request:
 ```json
 {
   "template_id": "shipping_label_v1",
-  "output": "png",
+  "output": "pdf",
   "response_mode": "url",
   "size": {
     "width_mm": 102,
@@ -399,7 +417,7 @@ Response:
 {
   "request_id": "req_01H00000000000000000000000",
   "status": "success",
-  "output_type": "png",
+  "output_type": "pdf",
   "output_url": "/api/v1/requests/req_01H00000000000000000000000/output"
 }
 ```
@@ -422,6 +440,7 @@ Request:
 ```json
 {
   "template_id": "shipping_label_v1",
+  "delivery_mode": "device_print",
   "printer_id": "printer_warehouse_a_01",
   "copies": 1,
   "data": {
@@ -439,6 +458,46 @@ Response:
   "request_id": "req_01H00000000000000000000001",
   "print_task_id": "pt_01H00000000000000000000001",
   "status": "queued"
+}
+```
+
+Supported `delivery_mode` values:
+- `pdf_preview`: generate a PDF label for business testing and do not dispatch to a printer.
+- `device_print`: dispatch the generated label through printer routing/configuration.
+
+When `delivery_mode` is `pdf_preview`, `printer_id` is optional and the response returns `output_type: "pdf"` plus `output_url` instead of a `print_task_id`.
+
+### Test Label PDF
+
+`POST /api/v1/labels/test-pdf`
+
+This endpoint is optimized for API testing pages and business validation. It validates the request, generates a label from POSTed data, converts it to PDF, and returns a downloadable PDF without printing.
+
+Request:
+
+```json
+{
+  "template_id": "shipping_label_v1",
+  "data_source_config_id": "dsc_warehouse_a_shipping",
+  "data": {
+    "order_no": "SO-10001",
+    "sku": "ABC-001",
+    "barcode": "1234567890"
+  },
+  "manual_values": {
+    "operator_note": "checked"
+  }
+}
+```
+
+Response:
+
+```json
+{
+  "request_id": "req_01H00000000000000000000004",
+  "status": "success",
+  "output_type": "pdf",
+  "output_url": "/api/v1/requests/req_01H00000000000000000000004/output"
 }
 ```
 
@@ -1068,6 +1127,7 @@ The current repository can start by extending the existing HTTP service graduall
 ### Phase 3: API Integration Workbench
 
 - Add API test console.
+- Add POST-to-PDF label testing for business validation.
 - Add request example generation for cURL, JavaScript, Python, and raw JSON.
 - Add API key authentication and scope checks.
 - Add unified request validation.
@@ -1079,6 +1139,7 @@ The current repository can start by extending the existing HTTP service graduall
 - Add printer configuration management for IP, port, DPI/DPMM, paper size, model, site, warehouse, and status.
 - Add template-printer binding.
 - Add routing rules by warehouse, site, business type, template, customer, and supplier.
+- Add PDF preview delivery mode that uses print configuration but does not dispatch to a device.
 - Add raw ZPL print dispatch through direct network printing.
 - Add optional QZ Tray client print channel.
 - Add print task queue with priority and printer availability checks.
