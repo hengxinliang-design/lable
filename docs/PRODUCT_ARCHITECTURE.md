@@ -98,6 +98,16 @@ Reusable data source configuration:
 - Reusing a configuration should skip repeated field confirmation unless the template version changed.
 - If a template version changes, the system should compare previous fields with newly parsed fields and ask the user to resolve only changed or missing mappings.
 
+Data source configuration management UI:
+- Provide a searchable list page for saved configurations.
+- Search and filter by configuration name, template, customer, supplier, warehouse, business process, status, creator, and updated time.
+- Show key columns: name, template, customer, supplier, warehouse, business process, input type, status, updated time, and last used time.
+- Provide create, edit, view detail, copy, enable, disable, archive/delete, and test actions.
+- The detail page should show field mappings, validation rules, default values, transformation rules, batch settings, and recent usage.
+- The edit page should allow users to adjust mappings and immediately test with sample rows.
+- Copying a configuration should let users create a new configuration for a similar customer, supplier, warehouse, or process without repeating all setup.
+- Disabling a configuration should prevent new batch jobs from using it while preserving history.
+
 Batch label generation:
 - Accept multiple data rows from JSON, CSV, Excel, or an API result.
 - Validate every row against the confirmed template field model.
@@ -340,6 +350,56 @@ Response:
 }
 ```
 
+### Search Data Source Configurations
+
+`GET /api/v1/data-source-configs`
+
+Query parameters:
+- `q`
+- `template_id`
+- `customer`
+- `supplier`
+- `warehouse`
+- `business_process`
+- `status`
+- `updated_from`
+- `updated_to`
+
+Response:
+
+```json
+{
+  "items": [
+    {
+      "id": "dsc_warehouse_a_shipping",
+      "name": "Warehouse A shipping labels",
+      "template_id": "shipping_label_v1",
+      "customer": "SAIC USA",
+      "supplier": "Relyans Max Inc.",
+      "warehouse": "Warehouse A",
+      "business_process": "shipping",
+      "type": "csv",
+      "status": "active",
+      "updated_at": "2026-06-11T15:00:00Z",
+      "last_used_at": "2026-06-11T15:30:00Z"
+    }
+  ],
+  "total": 1
+}
+```
+
+### Manage Data Source Configuration
+
+Endpoints:
+- `POST /api/v1/data-source-configs`
+- `GET /api/v1/data-source-configs/{id}`
+- `PUT /api/v1/data-source-configs/{id}`
+- `POST /api/v1/data-source-configs/{id}/copy`
+- `POST /api/v1/data-source-configs/{id}/enable`
+- `POST /api/v1/data-source-configs/{id}/disable`
+- `DELETE /api/v1/data-source-configs/{id}`
+- `POST /api/v1/data-source-configs/{id}/test`
+
 ## Core Data Model Draft
 
 ### Template
@@ -378,12 +438,20 @@ Fields:
 - `type`: `json`, `csv`, `excel`, or `api`
 - `template_id`
 - `template_version`
+- `customer`
+- `supplier`
+- `warehouse`
+- `business_process`
+- `description`
 - `mapping_rules`
 - `validation_rules`
 - `default_values`
 - `transform_rules`
 - `batch_settings`
 - `status`
+- `created_by`
+- `updated_by`
+- `last_used_at`
 - `created_at`
 - `updated_at`
 
@@ -512,6 +580,8 @@ The current repository can start by extending the existing HTTP service graduall
 - Add JSON/CSV data source import.
 - Add field mapping and validation.
 - Add reusable data source configurations.
+- Add searchable data source configuration management UI.
+- Add create/edit/copy/enable/disable/test actions for data source configurations.
 - Add batch render jobs with row-level validation.
 - Add output download for batch label results.
 
