@@ -55,10 +55,11 @@ Responsibilities:
 - Build a formatted field confirmation form from parsed ZPL content.
 - Let users classify each field as manual input, API/form input, fixed text, or ignored.
 - Map confirmed API/form fields to template variables.
+- Save reusable data source configurations for repeated label creation.
 - Import CSV, Excel, JSON, or API response data after the field model is confirmed.
 - Validate required fields and data types.
 - Apply formatting rules, default values, and transformations.
-- Generate batch label payloads.
+- Generate batch label payloads and render/print jobs.
 
 Primary users:
 - Operations users who prepare batch print jobs.
@@ -70,6 +71,8 @@ Initial scope:
 - Mark fields as `manual`, `api_field`, `fixed`, or `ignored`.
 - Define field mapping rules after confirmation.
 - Accept JSON input for API-driven fields.
+- Save field mappings as a reusable data source configuration.
+- Generate labels in bulk from repeated data rows.
 - Validate required fields before rendering.
 - Produce one render payload from manually keyed values plus API-provided values.
 
@@ -87,6 +90,22 @@ Field source types:
 - `api_field`: value is supplied by the caller through API payload.
 - `fixed`: value stays unchanged as part of the template.
 - `ignored`: parsed candidate is not part of the business field model.
+
+Reusable data source configuration:
+- A data source configuration belongs to one template or one template family.
+- It stores field mapping, validation rules, default values, transformation rules, and batch import settings.
+- Users should be able to select an existing configuration when creating labels from the same customer, supplier, warehouse, or business process.
+- Reusing a configuration should skip repeated field confirmation unless the template version changed.
+- If a template version changes, the system should compare previous fields with newly parsed fields and ask the user to resolve only changed or missing mappings.
+
+Batch label generation:
+- Accept multiple data rows from JSON, CSV, Excel, or an API result.
+- Validate every row against the confirmed template field model.
+- Produce one label payload per valid row.
+- Support partial failure: valid rows can render while invalid rows are returned with row-level errors.
+- Store a batch job record with total count, success count, failure count, output type, and related request IDs.
+- Allow users to download generated outputs individually or as a bundled file.
+- Allow batch output to flow into the print queue when a printer is selected.
 
 ### 3. API Encapsulation And Testing
 
@@ -280,6 +299,47 @@ Response:
 }
 ```
 
+### Batch Render Labels
+
+`POST /api/v1/labels/batch-render`
+
+Request:
+
+```json
+{
+  "template_id": "shipping_label_v1",
+  "data_source_config_id": "dsc_warehouse_a_shipping",
+  "output": "png",
+  "rows": [
+    {
+      "order_no": "SO-10001",
+      "sku": "ABC-001",
+      "barcode": "1234567890"
+    },
+    {
+      "order_no": "SO-10002",
+      "sku": "ABC-002",
+      "barcode": "1234567891"
+    }
+  ],
+  "manual_values": {
+    "operator_note": "checked"
+  }
+}
+```
+
+Response:
+
+```json
+{
+  "batch_job_id": "batch_01H00000000000000000000001",
+  "status": "processing",
+  "total_rows": 2,
+  "accepted_rows": 2,
+  "rejected_rows": 0
+}
+```
+
 ## Core Data Model Draft
 
 ### Template
@@ -316,8 +376,14 @@ Fields:
 - `id`
 - `name`
 - `type`: `json`, `csv`, `excel`, or `api`
+- `template_id`
+- `template_version`
 - `mapping_rules`
 - `validation_rules`
+- `default_values`
+- `transform_rules`
+- `batch_settings`
+- `status`
 - `created_at`
 - `updated_at`
 
@@ -382,6 +448,38 @@ Fields:
 - `created_at`
 - `updated_at`
 
+### Batch Label Job
+
+Fields:
+- `id`
+- `template_id`
+- `template_version`
+- `data_source_config_id`
+- `output_type`
+- `status`
+- `total_rows`
+- `success_rows`
+- `failed_rows`
+- `request_ids`
+- `error_summary`
+- `created_at`
+- `updated_at`
+
+### Batch Label Row
+
+Fields:
+- `id`
+- `batch_job_id`
+- `row_index`
+- `input_data`
+- `merged_values`
+- `status`
+- `request_id`
+- `output_path`
+- `error_message`
+- `created_at`
+- `updated_at`
+
 ## Technical Direction
 
 Recommended layering:
@@ -413,7 +511,9 @@ The current repository can start by extending the existing HTTP service graduall
 - Add manual/API/fixed/ignored field source classification.
 - Add JSON/CSV data source import.
 - Add field mapping and validation.
-- Add batch render jobs.
+- Add reusable data source configurations.
+- Add batch render jobs with row-level validation.
+- Add output download for batch label results.
 
 ### Phase 3: Print Gateway
 
