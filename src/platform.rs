@@ -93,6 +93,25 @@ struct PrintTask {
     retry_count: u32,
 }
 
+#[derive(Clone, Debug, Serialize, PartialEq, Eq)]
+struct QueueAlert {
+    severity: String,
+    code: String,
+    title: String,
+    message: String,
+    action: String,
+    task_filter: String,
+}
+
+#[derive(Clone, Debug, Serialize, PartialEq, Eq)]
+struct QueueHealth {
+    status: String,
+    queue_depth: usize,
+    needs_attention_count: usize,
+    retry_pending_count: usize,
+    alerts: Vec<QueueAlert>,
+}
+
 #[derive(Debug, Deserialize)]
 pub struct ImportTemplateRequest {
     pub id: Option<String>,
@@ -490,6 +509,8 @@ async fn dashboard_summary(State(state): State<PlatformState>) -> impl IntoRespo
         store.api_logs.iter().map(|l| l.duration_ms).sum::<u64>() / total_calls as u64
     };
 
+    let queue_health = print_queue_health(&store.print_tasks);
+
     Json(json!({
         "total_calls": total_calls,
         "success_count": success,
@@ -499,8 +520,90 @@ async fn dashboard_summary(State(state): State<PlatformState>) -> impl IntoRespo
         "avg_duration_ms": avg_duration_ms,
         "render_count": store.render_logs.len(),
         "print_task_count": store.print_tasks.len(),
-        "queue_depth": store.print_tasks.iter().filter(|t| t.status == "queued").count()
+        "queue_depth": queue_health.queue_depth,
+        "print_queue_health": queue_health
     }))
+}
+
+fn print_queue_health(tasks: &[PrintTask]) -> QueueHealth {
+    let queue_depth = tasks.iter().filter(|t| t.status == "queued").count();
+    let needs_attention_count = tasks
+        .iter()
+        .filter(|t| matches!(t.status.as_str(), "failed" | "blocked" | "device_offline"))
+        .count();
+    let retry_pending_count = tasks
+        .iter()
+        .filter(|t| t.retry_count > 0 && matches!(t.status.as_str(), "queued" | "retrying"))
+        .count();
+
+    let mut alerts = Vec::new();
+    if needs_attention_count > 0 {
+        alerts.push(QueueAlert {
+            severity: "critical".to_string(),
+            code: "PRINT_TASKS_NEED_ATTENTION".to_string(),
+            title: "Print tasks need manual attention".to_string(),
+            message: format!(
+                "{} print task(s) are failed, blocked, or waiting on an offline device.",
+                needs_attention_count
+            ),
+            action: "Open the print queue filtered by failed, blocked, and device_offline tasks."
+                .to_string(),
+            task_filter: "status:failed,blocked,device_offline".to_string(),
+        });
+    }
+
+    if queue_depth >= 100 {
+        alerts.push(QueueAlert {
+            severity: "critical".to_string(),
+            code: "PRINT_QUEUE_BACKLOG_CRITICAL".to_string(),
+            title: "Print queue backlog is critical".to_string(),
+            message: format!("{} print task(s) are waiting in queue.", queue_depth),
+            action: "Pause non-urgent routes, verify printer health, and dispatch recovery work."
+                .to_string(),
+            task_filter: "status:queued".to_string(),
+        });
+    } else if queue_depth >= 25 {
+        alerts.push(QueueAlert {
+            severity: "warning".to_string(),
+            code: "PRINT_QUEUE_BACKLOG_WARNING".to_string(),
+            title: "Print queue backlog is growing".to_string(),
+            message: format!("{} print task(s) are waiting in queue.", queue_depth),
+            action: "Review route capacity and printer availability before the backlog grows."
+                .to_string(),
+            task_filter: "status:queued".to_string(),
+        });
+    }
+
+    if retry_pending_count > 0 {
+        alerts.push(QueueAlert {
+            severity: "warning".to_string(),
+            code: "PRINT_RETRY_PENDING".to_string(),
+            title: "Print retries are pending".to_string(),
+            message: format!(
+                "{} queued or retrying task(s) have already attempted printing.",
+                retry_pending_count
+            ),
+            action: "Open retry tasks, check the last error, then retry or reroute them."
+                .to_string(),
+            task_filter: "retry_count:>0,status:queued,retrying".to_string(),
+        });
+    }
+
+    let status = if alerts.iter().any(|a| a.severity == "critical") {
+        "critical"
+    } else if alerts.iter().any(|a| a.severity == "warning") {
+        "warning"
+    } else {
+        "healthy"
+    };
+
+    QueueHealth {
+        status: status.to_string(),
+        queue_depth,
+        needs_attention_count,
+        retry_pending_count,
+        alerts,
+    }
 }
 
 fn render_from_request(
@@ -786,5 +889,48 @@ mod tests {
         let store = state.inner.store.lock().expect("store lock");
         let artifact = store.outputs.get("req_abc").expect("stored output");
         assert_eq!(artifact.bytes, b"^XA^XZ");
+    }
+
+    #[test]
+    fn print_queue_health_surfaces_backlog_and_recovery_alerts() {
+        let mut tasks = Vec::new();
+        for idx in 0..25 {
+            tasks.push(PrintTask {
+                id: format!("pt_{}", idx),
+                request_id: format!("req_{}", idx),
+                template_id: "z5z_01_gm_300_master".to_string(),
+                printer_id: Some("warehouse_a_01".to_string()),
+                delivery_mode: "device_print".to_string(),
+                status: "queued".to_string(),
+                retry_count: if idx == 0 { 1 } else { 0 },
+            });
+        }
+        tasks.push(PrintTask {
+            id: "pt_blocked".to_string(),
+            request_id: "req_blocked".to_string(),
+            template_id: "z5z_01_gm_300_master".to_string(),
+            printer_id: Some("warehouse_a_01".to_string()),
+            delivery_mode: "device_print".to_string(),
+            status: "device_offline".to_string(),
+            retry_count: 3,
+        });
+
+        let health = print_queue_health(&tasks);
+        assert_eq!(health.status, "critical");
+        assert_eq!(health.queue_depth, 25);
+        assert_eq!(health.needs_attention_count, 1);
+        assert_eq!(health.retry_pending_count, 1);
+        assert!(health
+            .alerts
+            .iter()
+            .any(|alert| alert.code == "PRINT_TASKS_NEED_ATTENTION"));
+        assert!(health
+            .alerts
+            .iter()
+            .any(|alert| alert.code == "PRINT_QUEUE_BACKLOG_WARNING"));
+        assert!(health
+            .alerts
+            .iter()
+            .any(|alert| alert.code == "PRINT_RETRY_PENDING"));
     }
 }

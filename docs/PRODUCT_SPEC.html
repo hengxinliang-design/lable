@@ -144,6 +144,21 @@
       margin: 14px 0;
     }
 
+    .alert-panel {
+      border: 2px solid var(--color-coral);
+      background: #fff1ee;
+      border-radius: 8px;
+      padding: 14px 16px;
+      margin: 14px 0 18px;
+    }
+
+    .alert-panel strong {
+      display: block;
+      margin-bottom: 6px;
+      color: var(--bad);
+      font-size: 15px;
+    }
+
     .status-ok { color: var(--ok); font-weight: 600; }
     .status-warn { color: var(--warn); font-weight: 600; }
     .status-bad { color: var(--bad); font-weight: 600; }
@@ -388,6 +403,10 @@
         </table>
 
         <h3>5.5 打印配置网关</h3>
+        <div class="alert-panel">
+          <strong>打印队列高优先级要求</strong>
+          API 请求处理、数据映射和任务创建必须与物理设备派发解耦。即使单位时间内出现批量打印请求，或打印机无响应，服务进程也必须保持可响应；界面必须用醒目的红/橙色提示暴露积压、失败、离线和待重试任务，并支持一键筛选到受影响队列。
+        </div>
         <table>
           <thead><tr><th>能力</th><th>规格</th></tr></thead>
           <tbody>
@@ -395,6 +414,9 @@
             <tr><td>模板绑定</td><td>模板可配置允许打印机和默认打印机，可覆盖纸张、DPI、份数。</td></tr>
             <tr><td>路由规则</td><td>按仓库、站点、业务类型、模板、客户、供应商、优先级匹配。</td></tr>
             <tr><td>队列状态</td><td><code>queued</code>、<code>dispatching</code>、<code>sent</code>、<code>completed</code>、<code>failed</code>、<code>paused</code>、<code>canceled</code>。</td></tr>
+            <tr><td>服务响应</td><td>打印任务入队后异步派发，物理打印机离线或超时不能阻塞 API 进程。</td></tr>
+            <tr><td>队列告警</td><td>按队列深度、最老等待时间、失败/阻塞任务、重试次数和离线设备生成 <code>warning</code>/<code>critical</code> 提示。</td></tr>
+            <tr><td>人工恢复</td><td>告警卡片可一键进入过滤后的任务列表，支持重试、改派、暂停、取消和补打。</td></tr>
             <tr><td>操作</td><td>重试、暂停、恢复、取消、补打。</td></tr>
             <tr><td>QZ Tray</td><td>作为可选本地工作站打印通道，与直接网络打印并列。</td></tr>
           </tbody>
@@ -408,7 +430,8 @@
             <tr><td>渲染日志</td><td>记录模板、版本、输出类型、DPMM、耗时、输出路径、错误详情。</td></tr>
             <tr><td>打印日志</td><td>记录打印任务状态、选中打印机、路由规则、通道、重试和 attempt。</td></tr>
             <tr><td>筛选</td><td>按模板、接口、打印机、仓库、站点、业务类型、时间、状态、错误码。</td></tr>
-            <tr><td>Dashboard</td><td>成功率、失败率、平均耗时、p95 耗时、调用量、队列深度、失败任务数。</td></tr>
+            <tr><td>Dashboard</td><td>成功率、失败率、平均耗时、p95 耗时、调用量、队列深度、失败任务数、打印队列健康状态。</td></tr>
+            <tr><td>醒目提示</td><td>Dashboard 顶部展示队列告警卡片，包含严重级别、影响数量、建议动作和任务筛选入口。</td></tr>
           </tbody>
         </table>
       </section>
@@ -425,7 +448,7 @@
             <tr><td><code>GET /api/v1/data-source-configs</code></td><td>搜索数据源配置。</td><td>配置列表</td></tr>
             <tr><td><code>GET /api/v1/printers</code></td><td>搜索打印机。</td><td>打印机列表</td></tr>
             <tr><td><code>GET /api/v1/print-tasks</code></td><td>查询打印任务。</td><td>任务列表</td></tr>
-            <tr><td><code>GET /api/v1/dashboard/summary</code></td><td>监控总览。</td><td>成功率、失败率、调用量、队列深度</td></tr>
+            <tr><td><code>GET /api/v1/dashboard/summary</code></td><td>监控总览。</td><td>成功率、失败率、调用量、队列深度、<code>print_queue_health</code></td></tr>
           </tbody>
         </table>
 

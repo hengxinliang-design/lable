@@ -266,6 +266,11 @@ Print queue:
 - Queue workers should select tasks by priority, creation time, and printer availability.
 - Failed tasks should store error details and retry eligibility.
 - Pausing a printer should stop dispatching new tasks to that printer without losing queued tasks.
+- API handling must remain responsive when the queue is busy or a physical printer is offline; device dispatch should run asynchronously from request validation and task creation.
+- Queue pressure should be measured by queued count, dispatching count, oldest queued age, retry count, and failed or blocked task count.
+- Printer unresponsiveness should mark affected tasks as `device_offline` or `blocked` instead of blocking the API process.
+- The queue UI must show prominent warning or critical banners when backlog, offline printers, failed tasks, or retry loops require human attention.
+- Operators must be able to filter directly from an alert into the affected tasks and then retry, reroute, pause, cancel, or reprint.
 
 Print task operations:
 - Retry: create a new attempt on the same task when retry limits allow.
@@ -339,6 +344,9 @@ Dashboard:
 - Break down metrics by template, endpoint, printer, warehouse, and error code.
 - Show recent failures and top recurring errors.
 - Show queue depth and failed print task count.
+- Show print queue health status as `healthy`, `warning`, or `critical`.
+- Show high-visibility alert cards for queue backlog, offline devices, blocked tasks, and pending retries.
+- Each alert should include severity, affected count, suggested recovery action, and a one-click task filter.
 - Allow time ranges such as last 15 minutes, 1 hour, 24 hours, 7 days, and custom range.
 
 ## System Data Flow
