@@ -12,16 +12,21 @@ pub const PLAYGROUND_HTML: &str = r##"<!DOCTYPE html>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
   :root {
-    --bg: #0f0f11;
-    --surface: #1a1a1f;
-    --surface2: #24242b;
-    --border: #2e2e38;
-    --accent: #5b8dee;
-    --accent-hover: #7aa3f5;
-    --text: #e2e2e8;
-    --text-dim: #888896;
-    --error: #e05555;
-    --success: #4dbd74;
+    --deep-teal: #01666A;
+    --lagoon: #159CBA;
+    --shell: #FAF5F2;
+    --coral-light: #FEC7C2;
+    --coral: #FF714F;
+    --bg: var(--shell);
+    --surface: #ffffff;
+    --surface2: #fff8f6;
+    --border: #dfd6d2;
+    --accent: var(--lagoon);
+    --accent-hover: #087f99;
+    --text: #11181f;
+    --text-dim: #5f6d72;
+    --error: #b9402d;
+    --success: var(--deep-teal);
     --radius: 8px;
     --font-mono: "JetBrains Mono","Fira Code","Cascadia Code",Consolas,monospace;
     --font-ui: system-ui,-apple-system,"Segoe UI",sans-serif;
@@ -36,31 +41,33 @@ pub const PLAYGROUND_HTML: &str = r##"<!DOCTYPE html>
   }
 
   header {
-    flex-shrink: 0; background: var(--surface);
-    border-bottom: 1px solid var(--border);
-    padding: 10px 20px; display: flex; align-items: center; gap: 14px;
+    flex-shrink: 0;
+    background: linear-gradient(135deg, var(--deep-teal), var(--lagoon));
+    border-bottom: 1px solid rgba(1,102,106,0.18);
+    padding: 13px 22px; display: flex; align-items: center; gap: 14px;
+    color: #fff;
   }
 
   .logo { display: flex; align-items: center; gap: 8px; }
 
   .logo-icon {
-    width: 28px; height: 28px; background: var(--accent);
+    width: 30px; height: 30px; background: var(--coral);
     border-radius: 6px; display: flex; align-items: center;
     justify-content: center; font-size: 14px; font-weight: 800; color: #fff;
   }
 
-  .logo-text { font-size: 16px; font-weight: 700; color: var(--text); }
+  .logo-text { font-size: 16px; font-weight: 700; color: #fff; }
 
   .tagline {
-    color: var(--text-dim); font-size: 13px;
-    border-left: 1px solid var(--border); padding-left: 14px;
+    color: rgba(255,255,255,0.82); font-size: 13px;
+    border-left: 1px solid rgba(255,255,255,0.32); padding-left: 14px;
   }
 
   .header-spacer { flex: 1; }
 
   .badge {
-    font-size: 11px; color: var(--text-dim); background: var(--surface2);
-    border: 1px solid var(--border); border-radius: 4px; padding: 2px 7px;
+    font-size: 11px; color: #fff; background: rgba(255,255,255,0.14);
+    border: 1px solid rgba(255,255,255,0.28); border-radius: 999px; padding: 3px 9px;
   }
 
   main {
@@ -71,25 +78,26 @@ pub const PLAYGROUND_HTML: &str = r##"<!DOCTYPE html>
   .editor-panel {
     display: flex; flex-direction: column;
     border-right: 1px solid var(--border); overflow: hidden;
+    background: var(--surface);
   }
 
   .panel-header {
-    flex-shrink: 0; padding: 7px 14px; background: var(--surface);
+    flex-shrink: 0; padding: 8px 14px; background: var(--surface2);
     border-bottom: 1px solid var(--border); font-size: 11px; font-weight: 600;
     text-transform: uppercase; letter-spacing: 0.8px; color: var(--text-dim);
     display: flex; align-items: center; gap: 6px;
   }
 
-  .panel-header .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); }
+  .panel-header .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--coral); }
 
   #zpl-input {
-    flex: 1; background: var(--bg); color: var(--text);
+    flex: 1; background: #fff; color: var(--text);
     font-family: var(--font-mono); font-size: 13px; line-height: 1.6;
     padding: 16px; border: none; outline: none; resize: none;
     tab-size: 2; overflow: auto; caret-color: var(--accent);
   }
 
-  #zpl-input::selection { background: rgba(91,141,238,0.28); }
+  #zpl-input::selection { background: rgba(254,199,194,0.65); }
 
   /* ── Settings bar ── */
   .settings-bar {
@@ -106,7 +114,7 @@ pub const PLAYGROUND_HTML: &str = r##"<!DOCTYPE html>
   }
 
   .sg input, .sg select {
-    background: var(--surface2); border: 1px solid var(--border);
+    background: #fff; border: 1px solid var(--border);
     border-radius: 5px; color: var(--text); font-size: 12px;
     font-family: var(--font-ui); padding: 4px 7px; outline: none;
     transition: border-color 0.15s;
@@ -118,7 +126,7 @@ pub const PLAYGROUND_HTML: &str = r##"<!DOCTYPE html>
   .unit-label { font-size: 11px; color: var(--text-dim); }
 
   #open-file-btn {
-    background: var(--surface2); color: var(--text-dim);
+    background: #fff; color: var(--deep-teal);
     border: 1px solid var(--border); border-radius: 6px;
     padding: 6px 13px; font-size: 12px; font-weight: 600;
     font-family: var(--font-ui); cursor: pointer;
@@ -126,31 +134,31 @@ pub const PLAYGROUND_HTML: &str = r##"<!DOCTYPE html>
     transition: border-color 0.15s, color 0.15s; white-space: nowrap;
   }
 
-  #open-file-btn:hover { border-color: var(--accent); color: var(--accent); }
+  #open-file-btn:hover { border-color: var(--lagoon); color: var(--lagoon); }
 
   #file-input { display: none; }
 
   #render-btn {
-    margin-left: auto; background: var(--accent); color: #fff;
+    margin-left: auto; background: var(--coral); color: #11181f;
     border: none; border-radius: 6px; padding: 7px 18px;
     font-size: 13px; font-weight: 600; font-family: var(--font-ui);
     cursor: pointer; display: flex; align-items: center; gap: 6px;
     transition: background 0.15s, transform 0.1s; white-space: nowrap;
   }
 
-  #render-btn:hover:not(:disabled) { background: var(--accent-hover); }
+  #render-btn:hover:not(:disabled) { background: #ff8a6d; }
   #render-btn:active:not(:disabled) { transform: scale(0.97); }
   #render-btn:disabled { opacity: 0.55; cursor: not-allowed; }
 
   .shortcut {
     font-size: 10px; opacity: 0.7;
-    background: rgba(255,255,255,0.15); border-radius: 3px; padding: 1px 4px;
+    background: rgba(17,24,31,0.12); border-radius: 3px; padding: 1px 4px;
   }
 
   /* ── Preview panel ── */
   .preview-panel {
     display: flex; flex-direction: column;
-    background: var(--bg); overflow: hidden; position: relative;
+    background: var(--shell); overflow: hidden; position: relative;
   }
 
   #preview-scroll {
@@ -165,7 +173,7 @@ pub const PLAYGROUND_HTML: &str = r##"<!DOCTYPE html>
 
   #loading {
     display: none; position: absolute; inset: 0;
-    background: rgba(15,15,17,0.72); align-items: center;
+    background: rgba(250,245,242,0.82); align-items: center;
     justify-content: center; flex-direction: column; gap: 12px; z-index: 10;
   }
 
@@ -194,7 +202,7 @@ pub const PLAYGROUND_HTML: &str = r##"<!DOCTYPE html>
   #preview-img {
     display: none; max-width: 100%;
     border: 1px solid var(--border); border-radius: 4px;
-    box-shadow: 0 4px 24px rgba(0,0,0,0.4); background: #fff;
+    box-shadow: 0 12px 32px rgba(1,102,106,0.18); background: #fff;
   }
 
   #preview-img.visible { display: block; }
@@ -218,13 +226,13 @@ pub const PLAYGROUND_HTML: &str = r##"<!DOCTYPE html>
   }
 
   .dl-btn-png {
-    background: var(--surface2); color: var(--text); border: 1px solid var(--border);
+    background: #fff; color: var(--deep-teal); border: 1px solid var(--border);
   }
 
-  .dl-btn-png:hover { border-color: var(--accent); color: var(--accent); }
+  .dl-btn-png:hover { border-color: var(--lagoon); color: var(--lagoon); }
 
-  .dl-btn-pdf { background: var(--accent); color: #fff; }
-  .dl-btn-pdf:hover:not(:disabled) { background: var(--accent-hover); }
+  .dl-btn-pdf { background: var(--deep-teal); color: #fff; }
+  .dl-btn-pdf:hover:not(:disabled) { background: #014e52; }
   .dl-btn-pdf:disabled { opacity: 0.55; cursor: not-allowed; }
 
   .mini-spinner {
@@ -253,18 +261,18 @@ pub const PLAYGROUND_HTML: &str = r##"<!DOCTYPE html>
 <header>
   <div class="logo">
     <span class="logo-icon">L</span>
-    <span class="logo-text">Labelize</span>
+    <span class="logo-text">Label Platform</span>
   </div>
-  <span class="tagline">ZPL &amp; EPL Label Playground</span>
+  <span class="tagline">ZPL / EPL Render Test Console</span>
   <span class="header-spacer"></span>
-  <span class="badge">v0.5</span>
+  <span class="badge">Coral Reef</span>
 </header>
 
 <main>
   <!-- ── Left: Editor + Settings ── -->
   <div class="editor-panel">
     <div class="panel-header">
-      <span class="dot"></span>ZPL / EPL Code
+      <span class="dot"></span>Template Source
     </div>
 
     <textarea id="zpl-input" spellcheck="false" autocomplete="off" autocorrect="off" autocapitalize="off">^XA
@@ -342,11 +350,11 @@ pub const PLAYGROUND_HTML: &str = r##"<!DOCTYPE html>
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
           <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
         </svg>
-        Open File
+        Open ZPL
       </button>
 
       <button id="render-btn">
-        &#9654; Render <span class="shortcut">Ctrl+&#9166;</span>
+        &#9654; Preview <span class="shortcut">Ctrl+&#9166;</span>
       </button>
     </div>
   </div>
@@ -354,7 +362,7 @@ pub const PLAYGROUND_HTML: &str = r##"<!DOCTYPE html>
   <!-- ── Right: Preview ── -->
   <div class="preview-panel">
     <div class="panel-header">
-      <span class="dot" style="background:var(--success)"></span>Preview
+      <span class="dot" style="background:var(--lagoon)"></span>Label Preview
       <span id="status-text" style="margin-left:auto;font-size:11px;text-transform:none;letter-spacing:0;font-weight:400"></span>
     </div>
 
@@ -370,7 +378,7 @@ pub const PLAYGROUND_HTML: &str = r##"<!DOCTYPE html>
           <line x1="3" y1="9" x2="21" y2="9"/>
           <line x1="9" y1="21" x2="9" y2="9"/>
         </svg>
-        <p>Press <strong>Render</strong> to preview your label</p>
+        <p>Press <strong>Preview</strong> to render the label</p>
         <p style="font-size:11px;margin-top:6px;opacity:0.55">Ctrl+Enter</p>
       </div>
 
@@ -385,7 +393,7 @@ pub const PLAYGROUND_HTML: &str = r##"<!DOCTYPE html>
             <polyline points="7 10 12 15 17 10"/>
             <line x1="12" y1="15" x2="12" y2="3"/>
           </svg>
-          Download PNG
+          Save PNG
         </a>
 
         <button id="dl-pdf" class="dl-btn dl-btn-pdf">
@@ -395,7 +403,7 @@ pub const PLAYGROUND_HTML: &str = r##"<!DOCTYPE html>
             <line x1="12" y1="15" x2="12" y2="3"/>
           </svg>
           <span class="mini-spinner"></span>
-          Download PDF
+          Save PDF
         </button>
       </div>
     </div><!-- /preview-scroll -->
