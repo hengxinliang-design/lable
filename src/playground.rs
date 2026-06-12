@@ -119,10 +119,23 @@ pub const PLAYGROUND_HTML: &str = r##"<!DOCTYPE html>
   .context-bar span { color: var(--text-dim); font-size: 12px; }
   .alert-strip { border: 2px solid var(--coral); background: #fff1ee; border-radius: var(--radius); padding: 13px 14px; margin-bottom: 12px; }
   .alert-strip strong { display: block; color: var(--error); margin-bottom: 4px; }
-  .module-table { width: 100%; border-collapse: collapse; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+  .module-table { width: 100%; border-collapse: collapse; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; table-layout: auto; }
   .module-table th, .module-table td { border-bottom: 1px solid var(--border); padding: 9px 10px; text-align: left; font-size: 12px; }
   .module-table th { background: var(--surface2); color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.4px; }
   .module-table tr:last-child td { border-bottom: none; }
+  .field-map-table { min-width: 860px; table-layout: fixed; }
+  .field-map-table th:nth-child(1), .field-map-table td:nth-child(1) { width: 82px; }
+  .field-map-table th:nth-child(2), .field-map-table td:nth-child(2) { width: 43%; }
+  .field-map-table th:nth-child(3), .field-map-table td:nth-child(3) { width: 140px; }
+  .field-map-table th:nth-child(4), .field-map-table td:nth-child(4) { width: 280px; }
+  .field-value-cell { white-space: normal; line-height: 1.35; }
+  .field-source, .field-api-name {
+    width: 100%; min-width: 0; border: 1px solid var(--border); border-radius: 5px;
+    background: #fff; color: var(--text); font: 12px/1.35 var(--font-ui);
+    padding: 7px 8px; outline: none;
+  }
+  .field-api-name { font-family: var(--font-mono); }
+  .field-source:focus, .field-api-name:focus { border-color: var(--lagoon); box-shadow: 0 0 0 2px rgba(21,156,186,0.12); }
   .chip { display: inline-flex; align-items: center; border-radius: 999px; padding: 2px 8px; font-size: 11px; font-weight: 700; background: var(--surface2); color: var(--text-dim); }
   .chip.ok { background: #e4f4f6; color: var(--deep-teal); }
   .chip.warn { background: var(--coral-light); color: #5b241b; }
@@ -150,7 +163,9 @@ pub const PLAYGROUND_HTML: &str = r##"<!DOCTYPE html>
     min-height: 96px; white-space: pre-wrap; font: 12px/1.5 var(--font-mono); overflow: auto;
   }
   .two-col { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; }
+  .two-col.wide-left { grid-template-columns: minmax(680px, 1.35fr) minmax(360px, 0.85fr); }
   .scroll-box { max-height: 300px; overflow: auto; border: 1px solid var(--border); border-radius: var(--radius); background: #fff; }
+  .scroll-box.field-map-scroll { max-height: 410px; }
 
   /* ── Editor panel ── */
   .editor-panel {
@@ -529,11 +544,11 @@ pub const PLAYGROUND_HTML: &str = r##"<!DOCTYPE html>
       <button id="load-config-btn" class="action-btn">Reload Saved Configs</button>
       <span id="config-status" class="chip">waiting</span>
     </div>
-    <div class="two-col">
+    <div class="two-col wide-left">
       <div>
         <h3>字段确认表单</h3>
-        <div class="scroll-box">
-          <table class="module-table">
+        <div class="scroll-box field-map-scroll">
+          <table class="module-table field-map-table">
             <thead><tr><th>Field</th><th>Value</th><th>Source</th><th>API Name</th></tr></thead>
             <tbody id="field-map-body"><tr><td colspan="4">No extracted fields yet.</td></tr></tbody>
           </table>
@@ -856,7 +871,7 @@ pub const PLAYGROUND_HTML: &str = r##"<!DOCTYPE html>
     body.innerHTML = currentFields.map(function (field, index) {
       return '<tr>' +
         '<td>' + escapeHtml(field.label) + '</td>' +
-        '<td>' + escapeHtml(field.value.slice(0, 42)) + '</td>' +
+        '<td class="field-value-cell">' + escapeHtml(field.value) + '</td>' +
         '<td><select class="field-source" data-index="' + index + '">' +
           ["manual", "api_field", "fixed", "ignored"].map(function (source) {
             return '<option value="' + source + '"' + (field.source === source ? " selected" : "") + '>' + source + '</option>';
