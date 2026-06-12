@@ -7,16 +7,21 @@
   <style>
     :root {
       color-scheme: light;
-      --ink: #172033;
-      --muted: #5d697d;
-      --line: #d9e0ea;
-      --soft: #f5f7fb;
+      --color-deep-teal: #01666A;
+      --color-lagoon: #159CBA;
+      --color-shell: #FAF5F2;
+      --color-coral-light: #FEC7C2;
+      --color-coral: #FF714F;
+      --ink: #11181f;
+      --muted: #5f6d72;
+      --line: #dfd6d2;
+      --soft: #FAF5F2;
       --panel: #ffffff;
-      --brand: #2457d6;
-      --brand-soft: #eaf0ff;
-      --ok: #0f7b55;
-      --warn: #a15c00;
-      --bad: #a33a3a;
+      --brand: var(--color-deep-teal);
+      --brand-soft: #e4f4f6;
+      --ok: #01666A;
+      --warn: #b85b25;
+      --bad: #b9402d;
     }
 
     * { box-sizing: border-box; }
@@ -24,7 +29,7 @@
     body {
       margin: 0;
       color: var(--ink);
-      background: #eef2f7;
+      background: var(--color-shell);
       font: 14px/1.65 -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
     }
 
@@ -33,12 +38,12 @@
       margin: 0 auto;
       background: var(--panel);
       min-height: 100vh;
-      box-shadow: 0 20px 60px rgba(23, 32, 51, 0.12);
+      box-shadow: 0 20px 60px rgba(1, 102, 106, 0.16);
     }
 
     header {
       padding: 42px 52px 30px;
-      background: linear-gradient(135deg, #183d99, #2b66e8);
+      background: linear-gradient(135deg, var(--color-deep-teal), var(--color-lagoon));
       color: #fff;
     }
 
@@ -53,8 +58,8 @@
     ul, ol { margin: 8px 0 14px 22px; padding: 0; }
     li { margin: 4px 0; }
     code {
-      background: #eef2f8;
-      border: 1px solid #d8e0ec;
+      background: var(--color-shell);
+      border: 1px solid var(--line);
       border-radius: 4px;
       padding: 1px 5px;
       font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
@@ -62,8 +67,8 @@
     }
 
     pre {
-      background: #111827;
-      color: #e5edf7;
+      background: #014e52;
+      color: #f8fbfb;
       padding: 14px 16px;
       border-radius: 8px;
       overflow: auto;
@@ -85,7 +90,7 @@
       word-break: break-word;
     }
 
-    th { background: var(--soft); text-align: left; }
+    th { background: var(--color-shell); text-align: left; }
 
     .meta {
       display: grid;
@@ -124,16 +129,16 @@
       display: inline-block;
       border-radius: 999px;
       padding: 2px 9px;
-      background: var(--brand-soft);
-      color: var(--brand);
+      background: var(--color-coral-light);
+      color: #5b241b;
       font-size: 12px;
       margin: 2px 4px 2px 0;
       white-space: nowrap;
     }
 
     .note {
-      border-left: 4px solid var(--brand);
-      background: var(--brand-soft);
+      border-left: 4px solid var(--color-coral);
+      background: #fff1ee;
       padding: 12px 14px;
       border-radius: 6px;
       margin: 14px 0;
@@ -144,7 +149,7 @@
     .status-bad { color: var(--bad); font-weight: 600; }
 
     .flow {
-      background: var(--soft);
+      background: var(--color-shell);
       border: 1px solid var(--line);
       border-radius: 8px;
       padding: 14px;
@@ -153,16 +158,44 @@
       white-space: pre-wrap;
     }
 
+    .palette {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 10px;
+      margin: 12px 0 22px;
+    }
+
+    .swatch {
+      min-height: 92px;
+      border-radius: 8px;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      border: 1px solid rgba(17, 24, 31, 0.12);
+      font-weight: 700;
+    }
+
+    .swatch small {
+      display: block;
+      font-weight: 500;
+      margin-top: 2px;
+      opacity: 0.82;
+    }
+
+    .swatch.dark { color: #fff; }
+    .swatch.light { color: #11181f; }
+
     footer {
       padding: 20px 52px 36px;
       border-top: 1px solid var(--line);
       color: var(--muted);
-      background: #fafbfd;
+      background: var(--color-shell);
     }
 
     @media (max-width: 860px) {
       header, main, footer { padding-left: 22px; padding-right: 22px; }
-      .meta, .grid, .cards-3 { grid-template-columns: 1fr; }
+      .meta, .grid, .cards-3, .palette { grid-template-columns: 1fr; }
       h1 { font-size: 28px; }
     }
   </style>
@@ -181,6 +214,18 @@
     </header>
 
     <main>
+      <section>
+        <h2>设计颜色方案</h2>
+        <p>产品采用 Coral Reef 配色作为统一视觉基准，用于后台管理界面、API 调试台、监控面板和文档资产。</p>
+        <div class="palette">
+          <div class="swatch dark" style="background:#01666A;">#01666A<small>主导航 / 结构强调</small></div>
+          <div class="swatch dark" style="background:#159CBA;">#159CBA<small>主按钮 / 活跃状态</small></div>
+          <div class="swatch light" style="background:#FAF5F2;">#FAF5F2<small>页面背景 / 安静区块</small></div>
+          <div class="swatch light" style="background:#FEC7C2;">#FEC7C2<small>柔和提示 / 选择态</small></div>
+          <div class="swatch light" style="background:#FF714F;">#FF714F<small>高强调操作 / 告警</small></div>
+        </div>
+      </section>
+
       <section>
         <h2>1. 产品目标</h2>
         <p>Label 平台的目标是把已有 ZPL 标签资产转化为可管理、可测试、可批量生成、可通过 API 调用、可按打印规则派发、可追踪监控的企业级标签服务。</p>
