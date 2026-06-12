@@ -1,0 +1,493 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Label 平台产品规格说明</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #172033;
+      --muted: #5d697d;
+      --line: #d9e0ea;
+      --soft: #f5f7fb;
+      --panel: #ffffff;
+      --brand: #2457d6;
+      --brand-soft: #eaf0ff;
+      --ok: #0f7b55;
+      --warn: #a15c00;
+      --bad: #a33a3a;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      background: #eef2f7;
+      font: 14px/1.65 -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+
+    .page {
+      max-width: 1180px;
+      margin: 0 auto;
+      background: var(--panel);
+      min-height: 100vh;
+      box-shadow: 0 20px 60px rgba(23, 32, 51, 0.12);
+    }
+
+    header {
+      padding: 42px 52px 30px;
+      background: linear-gradient(135deg, #183d99, #2b66e8);
+      color: #fff;
+    }
+
+    header p { max-width: 820px; margin: 12px 0 0; color: rgba(255,255,255,0.86); }
+    h1 { margin: 0; font-size: 34px; line-height: 1.2; letter-spacing: 0; }
+    h2 { margin: 34px 0 14px; font-size: 24px; border-bottom: 1px solid var(--line); padding-bottom: 8px; }
+    h3 { margin: 24px 0 10px; font-size: 18px; }
+    h4 { margin: 18px 0 8px; font-size: 15px; }
+
+    main { padding: 34px 52px 56px; }
+    p { margin: 8px 0 12px; }
+    ul, ol { margin: 8px 0 14px 22px; padding: 0; }
+    li { margin: 4px 0; }
+    code {
+      background: #eef2f8;
+      border: 1px solid #d8e0ec;
+      border-radius: 4px;
+      padding: 1px 5px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 12px;
+    }
+
+    pre {
+      background: #111827;
+      color: #e5edf7;
+      padding: 14px 16px;
+      border-radius: 8px;
+      overflow: auto;
+      font-size: 12px;
+      line-height: 1.55;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 10px 0 18px;
+      table-layout: fixed;
+    }
+
+    th, td {
+      border: 1px solid var(--line);
+      padding: 9px 10px;
+      vertical-align: top;
+      word-break: break-word;
+    }
+
+    th { background: var(--soft); text-align: left; }
+
+    .meta {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+      margin-top: 24px;
+    }
+
+    .meta div, .card {
+      border: 1px solid var(--line);
+      background: var(--panel);
+      border-radius: 8px;
+      padding: 14px;
+    }
+
+    .meta strong {
+      display: block;
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 4px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .cards-3 {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .tag {
+      display: inline-block;
+      border-radius: 999px;
+      padding: 2px 9px;
+      background: var(--brand-soft);
+      color: var(--brand);
+      font-size: 12px;
+      margin: 2px 4px 2px 0;
+      white-space: nowrap;
+    }
+
+    .note {
+      border-left: 4px solid var(--brand);
+      background: var(--brand-soft);
+      padding: 12px 14px;
+      border-radius: 6px;
+      margin: 14px 0;
+    }
+
+    .status-ok { color: var(--ok); font-weight: 600; }
+    .status-warn { color: var(--warn); font-weight: 600; }
+    .status-bad { color: var(--bad); font-weight: 600; }
+
+    .flow {
+      background: var(--soft);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 14px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 12px;
+      white-space: pre-wrap;
+    }
+
+    footer {
+      padding: 20px 52px 36px;
+      border-top: 1px solid var(--line);
+      color: var(--muted);
+      background: #fafbfd;
+    }
+
+    @media (max-width: 860px) {
+      header, main, footer { padding-left: 22px; padding-right: 22px; }
+      .meta, .grid, .cards-3 { grid-template-columns: 1fr; }
+      h1 { font-size: 28px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header>
+      <h1>Label 平台产品规格说明</h1>
+      <p>面向业务系统、仓库运营和技术支持的标签制作、数据映射、API 集成、打印配置与日志监控平台。底层以 labelize 作为 ZPL/EPL 解析和渲染驱动。</p>
+      <div class="meta">
+        <div><strong>文档版本</strong>v0.1 MVP 规格</div>
+        <div><strong>日期</strong>2026-06-12</div>
+        <div><strong>代码仓库</strong>hengxinliang-design/lable</div>
+        <div><strong>核心驱动</strong>labelize</div>
+      </div>
+    </header>
+
+    <main>
+      <section>
+        <h2>1. 产品目标</h2>
+        <p>Label 平台的目标是把已有 ZPL 标签资产转化为可管理、可测试、可批量生成、可通过 API 调用、可按打印规则派发、可追踪监控的企业级标签服务。</p>
+        <div class="note">
+          当前最小版本优先支持“导入已有 ZPL 并二次加工”，全新绘制标签暂不作为 MVP 范围。
+        </div>
+      </section>
+
+      <section>
+        <h2>2. 用户角色</h2>
+        <table>
+          <thead>
+            <tr><th>角色</th><th>主要诉求</th><th>典型操作</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>业务系统调用方</td>
+              <td>通过统一 API 生成 PDF、ZPL 或打印任务。</td>
+              <td>调用 Print Service REST API，传入 JSON/XML 业务数据。</td>
+            </tr>
+            <tr>
+              <td>业务/运营人员</td>
+              <td>导入模板、确认字段、测试 PDF、批量生成标签。</td>
+              <td>上传 ZPL、确认字段来源、下载测试 PDF、查看生成结果。</td>
+            </tr>
+            <tr>
+              <td>仓库/IT 管理员</td>
+              <td>维护打印机、路由规则、打印队列和状态。</td>
+              <td>配置打印机、绑定模板、设置路由、重试或补打。</td>
+            </tr>
+            <tr>
+              <td>开发/支持人员</td>
+              <td>调试 API、排查错误、查看日志和 Dashboard。</td>
+              <td>生成请求示例、运行 API 测试、按 request ID 查日志。</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section>
+        <h2>3. 系统组件总览</h2>
+        <div class="cards-3">
+          <div class="card">
+            <h3>Label 制作</h3>
+            <p>导入已有 ZPL，保留原始快照，创建工作副本，支持预览、轻量编辑、版本管理和测试样本。</p>
+          </div>
+          <div class="card">
+            <h3>数据源处理</h3>
+            <p>解析 ZPL 字段，生成字段确认表单，人工确认字段来源，保存可复用数据源配置，支持批量生成。</p>
+          </div>
+          <div class="card">
+            <h3>API 接口封装测试</h3>
+            <p>提供 REST API、API 调试页面、请求示例生成、鉴权、参数校验和统一错误码。</p>
+          </div>
+          <div class="card">
+            <h3>Print Service</h3>
+            <p>业务系统打印入口层，负责 JSON/XML 转换、字段映射验证、模板和打印机候选选择。</p>
+          </div>
+          <div class="card">
+            <h3>打印配置网关</h3>
+            <p>维护打印机配置、模板绑定、路由规则、打印队列、重试、暂停、取消和补打。</p>
+          </div>
+          <div class="card">
+            <h3>接口日志监控</h3>
+            <p>记录 API、渲染、打印日志，提供错误详情、重试记录、筛选和 Dashboard。</p>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <h2>4. 核心业务流程</h2>
+        <h3>4.1 导入已有 ZPL 并创建模板</h3>
+        <ol>
+          <li>用户上传或粘贴已有 ZPL 文件。</li>
+          <li>系统保存原始 ZPL 作为 source snapshot。</li>
+          <li>系统创建 working copy 作为后续二次加工版本。</li>
+          <li>使用 labelize 解析和渲染，生成 PNG/PDF 预览。</li>
+          <li>用户保存模板元数据：名称、尺寸、DPI/DPMM、描述、版本。</li>
+        </ol>
+
+        <h3>4.2 字段确认与数据源配置复用</h3>
+        <ol>
+          <li>系统使用 labelize 解析 ZPL，抽取文本、条码、二维码/DataMatrix 等候选字段。</li>
+          <li>系统生成格式化字段表单，包含字段名、当前值、元素类型、位置和建议来源。</li>
+          <li>用户确认字段来源：<code>manual</code>、<code>api_field</code>、<code>fixed</code>、<code>ignored</code>。</li>
+          <li>系统保存字段映射、校验规则、默认值、转换规则和批量导入设置。</li>
+          <li>同一客户、供应商、仓库或业务流程可复用已保存配置。</li>
+        </ol>
+
+        <h3>4.3 API 测试生成 PDF</h3>
+        <ol>
+          <li>业务或技术用户选择模板和数据源配置。</li>
+          <li>系统根据确认字段自动生成请求 JSON。</li>
+          <li>用户 POST 测试数据。</li>
+          <li>系统校验字段、合并数据、调用 labelize 渲染。</li>
+          <li>系统生成 PDF，返回下载/预览地址，供业务人员确认。</li>
+        </ol>
+
+        <h3>4.4 业务系统打印请求</h3>
+        <div class="flow">Business System
+  -> Print Service REST API
+  -> JSON/XML normalization
+  -> field mapping and validation
+  -> template selection
+  -> printer or route candidate selection
+  -> Print Configuration Gateway
+  -> route rule resolution
+  -> print queue
+  -> Printer Device / QZ Tray</div>
+      </section>
+
+      <section>
+        <h2>5. 模块规格</h2>
+
+        <h3>5.1 Label 制作</h3>
+        <table>
+          <thead><tr><th>能力</th><th>规格</th></tr></thead>
+          <tbody>
+            <tr><td>创建方式</td><td>MVP 支持导入已有 ZPL；未来支持从空白画布全新绘制。</td></tr>
+            <tr><td>版本管理</td><td>保留原始 ZPL；每次编辑保存为新模板版本。</td></tr>
+            <tr><td>预览</td><td>通过 labelize 输出 PNG/PDF；300dpi 标签使用 12 dpmm。</td></tr>
+            <tr><td>测试样本</td><td>每个模板可保存样本数据和预期输出，用于回归验证。</td></tr>
+          </tbody>
+        </table>
+
+        <h3>5.2 数据源处理</h3>
+        <table>
+          <thead><tr><th>能力</th><th>规格</th></tr></thead>
+          <tbody>
+            <tr><td>字段抽取</td><td>从 ZPL 的文本、条码和二维代码内容中抽取候选字段。</td></tr>
+            <tr><td>字段来源</td><td><span class="tag">manual</span><span class="tag">api_field</span><span class="tag">fixed</span><span class="tag">ignored</span></td></tr>
+            <tr><td>配置复用</td><td>按模板、客户、供应商、仓库、业务流程保存和复用配置。</td></tr>
+            <tr><td>批量生成</td><td>支持 JSON、CSV、Excel、API 结果；行级校验和部分失败。</td></tr>
+          </tbody>
+        </table>
+
+        <h3>5.3 API 接口封装测试</h3>
+        <table>
+          <thead><tr><th>能力</th><th>规格</th></tr></thead>
+          <tbody>
+            <tr><td>API 调试页面</td><td>选择模板和数据源配置，自动生成请求体，运行测试，展示响应和预览。</td></tr>
+            <tr><td>请求示例</td><td>生成 cURL、JavaScript fetch、Python requests 和 raw JSON。</td></tr>
+            <tr><td>输出类型</td><td><code>png</code>、<code>pdf</code>、<code>zpl</code>、<code>print_task</code>、<code>pdf_test</code>。</td></tr>
+            <tr><td>鉴权</td><td>API Key，使用 <code>Authorization: Bearer &lt;api_key&gt;</code>，支持 scope。</td></tr>
+            <tr><td>错误规范</td><td>统一错误格式，所有错误包含 <code>request_id</code> 和稳定错误码。</td></tr>
+          </tbody>
+        </table>
+
+        <h3>5.4 Print Service</h3>
+        <table>
+          <thead><tr><th>职责</th><th>说明</th></tr></thead>
+          <tbody>
+            <tr><td>RESTful 入口</td><td>接收业务系统发出的打印请求。</td></tr>
+            <tr><td>数据转换</td><td>JSON 优先，后续支持 XML 转换为统一字段模型。</td></tr>
+            <tr><td>字段验证</td><td>校验必填、类型、长度、枚举、业务规则。</td></tr>
+            <tr><td>模板选择</td><td>根据请求参数、路由上下文或默认规则选择模板。</td></tr>
+            <tr><td>打印机候选选择</td><td>根据仓库、站点、业务类型、客户、供应商、模板选择候选打印机或路由。</td></tr>
+            <tr><td>边界</td><td>不直接保存底层连接、不调度队列、不直接向设备发送 ZPL。</td></tr>
+          </tbody>
+        </table>
+
+        <h3>5.5 打印配置网关</h3>
+        <table>
+          <thead><tr><th>能力</th><th>规格</th></tr></thead>
+          <tbody>
+            <tr><td>打印机配置</td><td>IP、端口、DPI/DPMM、纸张尺寸、型号、站点、仓库、连接类型。</td></tr>
+            <tr><td>模板绑定</td><td>模板可配置允许打印机和默认打印机，可覆盖纸张、DPI、份数。</td></tr>
+            <tr><td>路由规则</td><td>按仓库、站点、业务类型、模板、客户、供应商、优先级匹配。</td></tr>
+            <tr><td>队列状态</td><td><code>queued</code>、<code>dispatching</code>、<code>sent</code>、<code>completed</code>、<code>failed</code>、<code>paused</code>、<code>canceled</code>。</td></tr>
+            <tr><td>操作</td><td>重试、暂停、恢复、取消、补打。</td></tr>
+            <tr><td>QZ Tray</td><td>作为可选本地工作站打印通道，与直接网络打印并列。</td></tr>
+          </tbody>
+        </table>
+
+        <h3>5.6 接口日志监控</h3>
+        <table>
+          <thead><tr><th>能力</th><th>规格</th></tr></thead>
+          <tbody>
+            <tr><td>API 请求日志</td><td>记录 method、path、endpoint、调用方、API key、状态码、耗时、错误码。</td></tr>
+            <tr><td>渲染日志</td><td>记录模板、版本、输出类型、DPMM、耗时、输出路径、错误详情。</td></tr>
+            <tr><td>打印日志</td><td>记录打印任务状态、选中打印机、路由规则、通道、重试和 attempt。</td></tr>
+            <tr><td>筛选</td><td>按模板、接口、打印机、仓库、站点、业务类型、时间、状态、错误码。</td></tr>
+            <tr><td>Dashboard</td><td>成功率、失败率、平均耗时、p95 耗时、调用量、队列深度、失败任务数。</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section>
+        <h2>6. API 摘要</h2>
+        <table>
+          <thead><tr><th>接口</th><th>用途</th><th>主要返回</th></tr></thead>
+          <tbody>
+            <tr><td><code>POST /api/v1/labels/render</code></td><td>生成 PNG/PDF/ZPL。</td><td>request_id、output_url</td></tr>
+            <tr><td><code>POST /api/v1/labels/test-pdf</code></td><td>业务测试用 PDF 标签。</td><td>request_id、PDF output_url</td></tr>
+            <tr><td><code>POST /api/v1/labels/print</code></td><td>PDF 预览或设备打印。</td><td>output_url 或 print_task_id</td></tr>
+            <tr><td><code>POST /api/v1/labels/batch-render</code></td><td>批量生成标签。</td><td>batch_job_id、行级统计</td></tr>
+            <tr><td><code>GET /api/v1/data-source-configs</code></td><td>搜索数据源配置。</td><td>配置列表</td></tr>
+            <tr><td><code>GET /api/v1/printers</code></td><td>搜索打印机。</td><td>打印机列表</td></tr>
+            <tr><td><code>GET /api/v1/print-tasks</code></td><td>查询打印任务。</td><td>任务列表</td></tr>
+            <tr><td><code>GET /api/v1/dashboard/summary</code></td><td>监控总览。</td><td>成功率、失败率、调用量、队列深度</td></tr>
+          </tbody>
+        </table>
+
+        <h3>统一错误响应</h3>
+        <pre>{
+  "request_id": "req_01H00000000000000000000003",
+  "status": "error",
+  "error": {
+    "code": "VALIDATION_REQUIRED_FIELD",
+    "message": "Required field is missing: order_no",
+    "details": [
+      { "field": "data.order_no", "reason": "required" }
+    ]
+  }
+}</pre>
+      </section>
+
+      <section>
+        <h2>7. 核心数据对象</h2>
+        <div class="grid">
+          <div class="card">
+            <h3>Template</h3>
+            <p>模板 ID、名称、格式、原始内容、工作内容、尺寸、DPMM、版本、状态。</p>
+          </div>
+          <div class="card">
+            <h3>Template Field</h3>
+            <p>字段名、显示名、来源类型、元素类型、原始值、默认值、必填、位置、格式规则。</p>
+          </div>
+          <div class="card">
+            <h3>Data Source Config</h3>
+            <p>模板、客户、供应商、仓库、业务流程、映射规则、校验规则、默认值、转换规则。</p>
+          </div>
+          <div class="card">
+            <h3>Printer</h3>
+            <p>名称、站点、仓库、连接类型、IP、端口、QZ 客户端、本地打印机名、型号、DPMM、纸张。</p>
+          </div>
+          <div class="card">
+            <h3>Print Task</h3>
+            <p>request ID、模板、打印机、路由规则、通道、payload、份数、状态、重试次数、时间戳。</p>
+          </div>
+          <div class="card">
+            <h3>Logs</h3>
+            <p>API Request Log、Render Log、Error Log、Print Task Attempt。</p>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <h2>8. MVP 范围</h2>
+        <table>
+          <thead><tr><th>包含</th><th>暂不包含</th></tr></thead>
+          <tbody>
+            <tr>
+              <td>
+                <ul>
+                  <li>导入已有 ZPL 模板</li>
+                  <li>保留原始快照和工作副本</li>
+                  <li>使用 labelize 生成 PNG/PDF 预览</li>
+                  <li>POST 测试数据生成 PDF</li>
+                  <li>基础 API 日志和 Dashboard</li>
+                  <li>打印任务排队骨架</li>
+                </ul>
+              </td>
+              <td>
+                <ul>
+                  <li>完整可视化画布设计器</li>
+                  <li>复杂 Excel 映射</li>
+                  <li>完整队列 worker 和真实设备派发</li>
+                  <li>实时大屏和告警系统</li>
+                  <li>复杂角色权限体系</li>
+                </ul>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section>
+        <h2>9. 开发路线图</h2>
+        <ol>
+          <li><strong>Render Service Foundation：</strong>模板存储、ZPL 导入、PDF/PNG 预览、请求日志、基础测试。</li>
+          <li><strong>Template And Data Management：</strong>字段抽取、字段确认、数据源配置管理、批量生成。</li>
+          <li><strong>API Integration Workbench：</strong>API 调试台、请求示例、API Key、统一校验和错误码。</li>
+          <li><strong>Print Gateway：</strong>打印机配置、模板绑定、路由规则、QZ Tray、队列和重试。</li>
+          <li><strong>Monitoring Console：</strong>日志筛选、错误详情、重试记录、Dashboard。</li>
+          <li><strong>Advanced Designer：</strong>全新绘制、半可视化编辑、字段提示、视觉 diff。</li>
+        </ol>
+      </section>
+
+      <section>
+        <h2>10. 当前实现状态</h2>
+        <table>
+          <thead><tr><th>项目</th><th>状态</th><th>说明</th></tr></thead>
+          <tbody>
+            <tr><td>ZPL 样本</td><td class="status-ok">已加入</td><td><code>testdata/samples/z5z_01_gm_300_master.zpl</code></td></tr>
+            <tr><td>平台 API MVP</td><td class="status-ok">已实现</td><td>模板列表、PDF 测试、打印任务骨架、日志、Dashboard。</td></tr>
+            <tr><td>完整测试</td><td class="status-ok">已通过</td><td><code>cargo test --features serve</code> 已通过，98 个 golden 回归通过。</td></tr>
+            <tr><td>真实打印派发</td><td class="status-warn">待实现</td><td>当前为打印任务排队骨架，后续接入配置网关和设备通道。</td></tr>
+            <tr><td>持久化数据库</td><td class="status-warn">待实现</td><td>当前 MVP 使用内存状态，后续需要数据库。</td></tr>
+          </tbody>
+        </table>
+      </section>
+    </main>
+
+    <footer>
+      本规格由当前 Label 平台架构设计整理而成，作为后续实现、评审和任务拆分的基线文档。
+    </footer>
+  </div>
+</body>
+</html>
