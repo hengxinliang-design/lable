@@ -89,6 +89,7 @@ struct PrintTask {
     template_id: String,
     printer_id: Option<String>,
     delivery_mode: String,
+    connection_mode: String,
     status: String,
     retry_count: u32,
 }
@@ -146,7 +147,10 @@ pub struct PrintRequest {
     pub template_id: String,
     pub delivery_mode: Option<String>,
     pub printer_id: Option<String>,
+    pub connection_mode: Option<String>,
     pub copies: Option<u32>,
+    #[serde(default)]
+    pub field_schema: Value,
     #[serde(default)]
     pub data: Value,
     #[serde(default)]
@@ -350,6 +354,19 @@ async fn print_label_handler(
         .delivery_mode
         .clone()
         .unwrap_or_else(|| "device_print".to_string());
+    let connection_mode = req
+        .connection_mode
+        .clone()
+        .unwrap_or_else(|| "print_server".to_string());
+
+    if !is_allowed_connection_mode(&connection_mode) {
+        return api_error(
+            &request_id,
+            StatusCode::BAD_REQUEST,
+            "VALIDATION_INVALID_CONNECTION_MODE",
+            "unsupported connection_mode",
+        );
+    }
 
     if delivery_mode == "pdf_preview" {
         let render_req = RenderRequest {
@@ -402,6 +419,7 @@ async fn print_label_handler(
         template_id: req.template_id,
         printer_id: req.printer_id,
         delivery_mode,
+        connection_mode: connection_mode.clone(),
         status: "queued".to_string(),
         retry_count: 0,
     });
@@ -419,10 +437,15 @@ async fn print_label_handler(
         Json(json!({
             "request_id": request_id,
             "print_task_id": print_task_id,
-            "status": "queued"
+            "status": "queued",
+            "connection_mode": connection_mode
         })),
     )
         .into_response()
+}
+
+fn is_allowed_connection_mode(mode: &str) -> bool {
+    matches!(mode, "print_server" | "direct_ip" | "qz_tray" | "pdf_only")
 }
 
 async fn api_example_handler(Json(req): Json<ApiExampleRequest>) -> impl IntoResponse {
@@ -875,6 +898,45 @@ mod tests {
     }
 
     #[test]
+    fn print_request_accepts_client_schema_and_connection_mode() {
+        let req: PrintRequest = serde_json::from_value(json!({
+            "template_id": "z5z_01_gm_300_master",
+            "delivery_mode": "device_print",
+            "printer_id": "warehouse_a_01",
+            "connection_mode": "direct_ip",
+            "field_schema": [
+                {
+                    "name": "barcode_bc_11",
+                    "kind": "barcode",
+                    "barcode_type": "Barcode - Code 128",
+                    "barcode_command": "^BC",
+                    "sample_value": "12345678"
+                }
+            ],
+            "data": { "barcode_bc_11": "987654321" },
+            "manual_values": {}
+        }))
+        .expect("print request should deserialize");
+
+        assert_eq!(req.connection_mode.as_deref(), Some("direct_ip"));
+        assert_eq!(req.field_schema[0]["kind"], "barcode");
+        assert_eq!(req.field_schema[0]["barcode_command"], "^BC");
+        assert_eq!(req.data["barcode_bc_11"], "987654321");
+    }
+
+    #[test]
+    fn print_connection_mode_is_whitelisted() {
+        for mode in ["print_server", "direct_ip", "qz_tray", "pdf_only"] {
+            assert!(
+                is_allowed_connection_mode(mode),
+                "{mode} should be accepted"
+            );
+        }
+        assert!(!is_allowed_connection_mode("browser_socket"));
+        assert!(!is_allowed_connection_mode(""));
+    }
+
+    #[test]
     fn rendered_output_can_be_stored_and_retrieved_by_request_id() {
         let state = PlatformState::new();
         let url = store_output(
@@ -901,6 +963,7 @@ mod tests {
                 template_id: "z5z_01_gm_300_master".to_string(),
                 printer_id: Some("warehouse_a_01".to_string()),
                 delivery_mode: "device_print".to_string(),
+                connection_mode: "print_server".to_string(),
                 status: "queued".to_string(),
                 retry_count: if idx == 0 { 1 } else { 0 },
             });
@@ -911,6 +974,7 @@ mod tests {
             template_id: "z5z_01_gm_300_master".to_string(),
             printer_id: Some("warehouse_a_01".to_string()),
             delivery_mode: "device_print".to_string(),
+            connection_mode: "print_server".to_string(),
             status: "device_offline".to_string(),
             retry_count: 3,
         });

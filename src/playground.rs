@@ -1747,3 +1747,30 @@ pub const PLAYGROUND_HTML: &str = r##"<!DOCTYPE html>
 </body>
 </html>
 "##;
+
+#[cfg(test)]
+mod tests {
+    use super::PLAYGROUND_HTML;
+
+    #[test]
+    fn workbench_exposes_barcode_field_mapping_controls() {
+        assert!(PLAYGROUND_HTML.contains("Barcode - Code 128"));
+        assert!(PLAYGROUND_HTML.contains("Barcode - QR Code"));
+        assert!(PLAYGROUND_HTML.contains("function detectFieldElement"));
+        assert!(PLAYGROUND_HTML.contains("API value will regenerate this barcode"));
+        assert!(PLAYGROUND_HTML.contains("field_schema: schemaFromMappings()"));
+        assert!(PLAYGROUND_HTML.contains("barcode_command"));
+    }
+
+    #[test]
+    fn workbench_exposes_print_server_and_direct_ip_modes() {
+        assert!(PLAYGROUND_HTML.contains("客户端负责配置、监控和人工恢复"));
+        assert!(PLAYGROUND_HTML.contains("printer-connection"));
+        assert!(PLAYGROUND_HTML.contains("value=\"print_server\""));
+        assert!(PLAYGROUND_HTML.contains("value=\"direct_ip\""));
+        assert!(PLAYGROUND_HTML.contains("value=\"qz_tray\""));
+        assert!(PLAYGROUND_HTML.contains("value=\"pdf_only\""));
+        assert!(PLAYGROUND_HTML.contains("print-server-endpoint"));
+        assert!(PLAYGROUND_HTML.contains("connection_mode"));
+    }
+}
