@@ -7,7 +7,7 @@ pub const PLAYGROUND_HTML: &str = r##"<!DOCTYPE html>
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Labelize Playground</title>
+<title>Label Platform Workbench</title>
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -70,9 +70,58 @@ pub const PLAYGROUND_HTML: &str = r##"<!DOCTYPE html>
     border: 1px solid rgba(255,255,255,0.28); border-radius: 999px; padding: 3px 9px;
   }
 
-  main {
-    flex: 1; display: grid; grid-template-columns: 1fr 1fr; overflow: hidden;
+  .module-nav {
+    flex-shrink: 0;
+    display: flex; align-items: center; gap: 8px;
+    padding: 10px 14px; background: var(--surface);
+    border-bottom: 1px solid var(--border); overflow-x: auto;
   }
+
+  .module-tab {
+    border: 1px solid transparent; background: transparent; color: var(--text-dim);
+    border-radius: 7px; padding: 8px 12px; font-size: 13px; font-weight: 700;
+    font-family: var(--font-ui); cursor: pointer; white-space: nowrap;
+  }
+
+  .module-tab:hover { color: var(--deep-teal); background: var(--surface2); }
+
+  .module-tab.active {
+    color: #fff; background: var(--deep-teal);
+    border-color: rgba(1,102,106,0.22);
+  }
+
+  .workspace { flex: 1; overflow: hidden; background: var(--bg); }
+  .module-panel { display: none; height: 100%; overflow: auto; }
+  .module-panel.active { display: block; }
+
+  .designer-grid {
+    flex: 1; display: grid; grid-template-columns: 1fr 1fr; overflow: hidden;
+    height: 100%;
+  }
+
+  .module-dashboard { padding: 18px; }
+  .module-title { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; margin-bottom: 14px; }
+  .module-title h2 { font-size: 19px; line-height: 1.2; margin: 0 0 5px; }
+  .module-title p { color: var(--text-dim); font-size: 13px; line-height: 1.5; max-width: 760px; }
+  .status-pill { border-radius: 999px; padding: 5px 10px; background: var(--coral-light); color: #5b241b; font-size: 12px; font-weight: 800; white-space: nowrap; }
+  .dashboard-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+  .module-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; min-height: 122px; }
+  .module-card h3 { font-size: 13px; margin-bottom: 8px; color: var(--deep-teal); }
+  .module-card p, .module-card li { color: var(--text-dim); font-size: 12px; line-height: 1.45; }
+  .module-card ul { margin-left: 16px; }
+  .metric-row { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-bottom: 12px; }
+  .metric { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px; }
+  .metric strong { display: block; font-size: 24px; color: var(--deep-teal); line-height: 1.1; }
+  .metric span { color: var(--text-dim); font-size: 12px; }
+  .alert-strip { border: 2px solid var(--coral); background: #fff1ee; border-radius: var(--radius); padding: 13px 14px; margin-bottom: 12px; }
+  .alert-strip strong { display: block; color: var(--error); margin-bottom: 4px; }
+  .module-table { width: 100%; border-collapse: collapse; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+  .module-table th, .module-table td { border-bottom: 1px solid var(--border); padding: 9px 10px; text-align: left; font-size: 12px; }
+  .module-table th { background: var(--surface2); color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.4px; }
+  .module-table tr:last-child td { border-bottom: none; }
+  .chip { display: inline-flex; align-items: center; border-radius: 999px; padding: 2px 8px; font-size: 11px; font-weight: 700; background: var(--surface2); color: var(--text-dim); }
+  .chip.ok { background: #e4f4f6; color: var(--deep-teal); }
+  .chip.warn { background: var(--coral-light); color: #5b241b; }
 
   /* ── Editor panel ── */
   .editor-panel {
@@ -263,12 +312,22 @@ pub const PLAYGROUND_HTML: &str = r##"<!DOCTYPE html>
     <span class="logo-icon">L</span>
     <span class="logo-text">Label Platform</span>
   </div>
-  <span class="tagline">ZPL / EPL Render Test Console</span>
+  <span class="tagline">Operations Workbench</span>
   <span class="header-spacer"></span>
   <span class="badge">Coral Reef</span>
 </header>
 
-<main>
+<nav class="module-nav" aria-label="Product modules">
+  <button class="module-tab active" data-module="design">Label 制作</button>
+  <button class="module-tab" data-module="data">数据源处理</button>
+  <button class="module-tab" data-module="api">API 接口测试</button>
+  <button class="module-tab" data-module="print">打印配置网关</button>
+  <button class="module-tab" data-module="monitor">接口日志监控</button>
+</nav>
+
+<main class="workspace">
+<section class="module-panel active" data-panel="design">
+<div class="designer-grid">
   <!-- ── Left: Editor + Settings ── -->
   <div class="editor-panel">
     <div class="panel-header">
@@ -413,6 +472,130 @@ pub const PLAYGROUND_HTML: &str = r##"<!DOCTYPE html>
       <span id="status-time"></span>
     </div>
   </div>
+</div>
+</section>
+
+<section class="module-panel" data-panel="data">
+  <div class="module-dashboard">
+    <div class="module-title">
+      <div>
+        <h2>数据源处理</h2>
+        <p>把业务数据变成模板可用字段，支持人工确认字段来源、复用客户/供应商/仓库/流程配置，以及后续批量生成标签。</p>
+      </div>
+      <span class="status-pill">Field Mapping</span>
+    </div>
+    <div class="dashboard-grid">
+      <div class="module-card">
+        <h3>字段确认</h3>
+        <ul>
+          <li>从 ZPL 文本、条码、二维码提取候选字段</li>
+          <li>标记 manual、api_field、fixed、ignored</li>
+          <li>确认后生成 API 请求字段模型</li>
+        </ul>
+      </div>
+      <div class="module-card">
+        <h3>配置复用</h3>
+        <ul>
+          <li>按客户、供应商、仓库、业务流程保存</li>
+          <li>支持搜索、复制、启用、停用和归档</li>
+          <li>模板版本变化时只处理差异字段</li>
+        </ul>
+      </div>
+      <div class="module-card">
+        <h3>批量生成</h3>
+        <ul>
+          <li>接收 JSON、CSV、Excel 或 API 结果</li>
+          <li>行级校验，支持部分失败</li>
+          <li>有效行可进入渲染或打印队列</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="module-panel" data-panel="api">
+  <div class="module-dashboard">
+    <div class="module-title">
+      <div>
+        <h2>API 接口封装测试</h2>
+        <p>面向业务系统提供统一 RESTful 接口，支持请求示例生成、PDF 测试输出、ZPL/PNG/PDF 返回和打印任务创建。</p>
+      </div>
+      <span class="status-pill">API Console</span>
+    </div>
+    <div class="dashboard-grid">
+      <div class="module-card">
+        <h3>调试页面</h3>
+        <p>选择模板和数据源配置后自动生成请求 JSON，业务人员可先生成 PDF 标签确认，不触发物理打印。</p>
+      </div>
+      <div class="module-card">
+        <h3>返回类型</h3>
+        <p><span class="chip ok">PNG</span> <span class="chip ok">PDF</span> <span class="chip ok">ZPL</span> <span class="chip warn">Print Task ID</span></p>
+      </div>
+      <div class="module-card">
+        <h3>接口规范</h3>
+        <p>API Key 鉴权、参数校验、稳定错误码、request_id 贯穿日志和任务链路。</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="module-panel" data-panel="print">
+  <div class="module-dashboard">
+    <div class="module-title">
+      <div>
+        <h2>打印配置网关</h2>
+        <p>管理打印机、模板绑定、路由规则和打印任务队列。物理设备无响应时不能阻塞 API 服务，必须醒目标识待处理任务。</p>
+      </div>
+      <span class="status-pill">Queue Control</span>
+    </div>
+    <div class="alert-strip">
+      <strong>打印队列需要优先可见</strong>
+      批量任务积压、设备离线、任务失败或多次重试时，界面顶部要显示红/橙告警，并允许一键筛选到受影响任务后重试、改派、暂停、取消或补打。
+    </div>
+    <div class="metric-row">
+      <div class="metric"><strong id="metric-queue-depth">0</strong><span>Queued</span></div>
+      <div class="metric"><strong id="metric-attention">0</strong><span>Need Attention</span></div>
+      <div class="metric"><strong id="metric-retry">0</strong><span>Retry Pending</span></div>
+      <div class="metric"><strong id="metric-health">Healthy</strong><span>Queue Health</span></div>
+    </div>
+    <table class="module-table">
+      <thead><tr><th>能力</th><th>当前设计</th><th>人工动作</th></tr></thead>
+      <tbody>
+        <tr><td>打印机配置</td><td>IP、端口、DPI/DPMM、纸张、型号、站点、仓库、QZ Tray</td><td>测试连接 / 停用</td></tr>
+        <tr><td>模板绑定</td><td>模板允许打印机、默认打印机、纸张和份数覆盖</td><td>改派 / 管理绑定</td></tr>
+        <tr><td>路由规则</td><td>按仓库、站点、业务类型、客户、供应商、模板、优先级匹配</td><td>启停规则 / 调整优先级</td></tr>
+        <tr><td>任务队列</td><td>queued、dispatching、sent、completed、failed、blocked、device_offline</td><td>重试 / 暂停 / 取消 / 补打</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="module-panel" data-panel="monitor">
+  <div class="module-dashboard">
+    <div class="module-title">
+      <div>
+        <h2>接口日志监控</h2>
+        <p>集中查看 API 请求日志、渲染日志、打印任务日志和错误重试记录，并在 Dashboard 中展示成功率、失败率、耗时和调用量。</p>
+      </div>
+      <span class="status-pill">Observability</span>
+    </div>
+    <div class="metric-row">
+      <div class="metric"><strong id="metric-total-calls">0</strong><span>Total Calls</span></div>
+      <div class="metric"><strong id="metric-success-rate">0%</strong><span>Success Rate</span></div>
+      <div class="metric"><strong id="metric-failure-rate">0%</strong><span>Failure Rate</span></div>
+      <div class="metric"><strong id="metric-render-count">0</strong><span>Render Count</span></div>
+    </div>
+    <div id="monitor-alerts" class="alert-strip" style="display:none"></div>
+    <table class="module-table">
+      <thead><tr><th>日志类型</th><th>筛选条件</th><th>定位动作</th></tr></thead>
+      <tbody>
+        <tr><td>API 请求日志</td><td>接口、调用方、状态码、request_id、时间</td><td>查看请求与错误码</td></tr>
+        <tr><td>渲染日志</td><td>模板、输出类型、DPMM、耗时、错误</td><td>打开输出或错误详情</td></tr>
+        <tr><td>打印任务日志</td><td>打印机、路由、状态、重试次数、通道</td><td>进入任务详情并恢复</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
 </main>
 
 <script>
@@ -439,6 +622,64 @@ pub const PLAYGROUND_HTML: &str = r##"<!DOCTYPE html>
   var statusTime = document.getElementById("status-time");
 
   var pngBlobUrl = null;
+
+  function setupModules() {
+    var tabs = Array.prototype.slice.call(document.querySelectorAll(".module-tab"));
+    var panels = Array.prototype.slice.call(document.querySelectorAll(".module-panel"));
+    tabs.forEach(function (tab) {
+      tab.addEventListener("click", function () {
+        var module = tab.getAttribute("data-module");
+        tabs.forEach(function (item) { item.classList.toggle("active", item === tab); });
+        panels.forEach(function (panel) {
+          panel.classList.toggle("active", panel.getAttribute("data-panel") === module);
+        });
+        if (module === "print" || module === "monitor") refreshDashboard();
+      });
+    });
+  }
+
+  function setText(id, value) {
+    var node = document.getElementById(id);
+    if (node) node.textContent = value;
+  }
+
+  function percent(value) {
+    return Math.round((Number(value) || 0) * 100) + "%";
+  }
+
+  function titleCase(value) {
+    value = String(value || "healthy");
+    return value.charAt(0).toUpperCase() + value.slice(1);
+  }
+
+  function refreshDashboard() {
+    fetch("/api/v1/dashboard/summary")
+      .then(function (res) { return res.ok ? res.json() : null; })
+      .then(function (summary) {
+        if (!summary) return;
+        var health = summary.print_queue_health || {};
+        setText("metric-queue-depth", health.queue_depth || 0);
+        setText("metric-attention", health.needs_attention_count || 0);
+        setText("metric-retry", health.retry_pending_count || 0);
+        setText("metric-health", titleCase(health.status));
+        setText("metric-total-calls", summary.total_calls || 0);
+        setText("metric-success-rate", percent(summary.success_rate));
+        setText("metric-failure-rate", percent(summary.failure_rate));
+        setText("metric-render-count", summary.render_count || 0);
+
+        var alerts = health.alerts || [];
+        var alertBox = document.getElementById("monitor-alerts");
+        if (alertBox) {
+          alertBox.style.display = alerts.length ? "block" : "none";
+          alertBox.innerHTML = alerts.length
+            ? "<strong>" + alerts.length + " queue alert(s)</strong>" + alerts.map(function (a) {
+                return "<div>" + a.severity + " - " + a.title + " - " + a.action + "</div>";
+              }).join("")
+            : "";
+        }
+      })
+      .catch(function () {});
+  }
 
   var SIZE_PRESETS = {
     "4x6":     [4,   6],
@@ -610,6 +851,9 @@ pub const PLAYGROUND_HTML: &str = r##"<!DOCTYPE html>
       render();
     }
   });
+
+  setupModules();
+  refreshDashboard();
 })();
 </script>
 </body>
