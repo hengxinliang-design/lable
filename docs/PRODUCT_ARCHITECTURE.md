@@ -6,6 +6,55 @@ This project will evolve from a ZPL/EPL rendering engine into a label platform f
 
 The existing `labelize` crate remains the rendering driver. Higher-level modules should call it for parsing, preview rendering, PNG/PDF generation, and format validation instead of reimplementing label rendering logic.
 
+## Deployment Split: Client And Server
+
+The product should be split into a management client and one or more server-side services.
+
+### Client
+
+The client is the operator-facing application. It should not own physical printer connections.
+
+Responsibilities:
+- Label template import, preview, and secondary editing.
+- Data source configuration, field confirmation, and batch setup.
+- API test console and PDF/ZPL preview.
+- Printer, route, queue, and log management UI.
+- Human recovery actions such as retry, cancel, reprint, or reroute.
+- Display real-time printer status and queue alerts provided by the server.
+
+The client can be delivered as:
+- A browser-based management console.
+- A future desktop/workstation helper when QZ Tray or local USB printers are required.
+
+### Server
+
+The server is the operational control plane and print execution layer.
+
+Responsibilities:
+- Expose REST APIs to business systems.
+- Normalize JSON/XML payloads and validate fields.
+- Render PNG/PDF/ZPL through `labelize`.
+- Select templates and printer routes.
+- Own print task queues and retry lifecycle.
+- Connect to a print server when available and keep a long-lived connection.
+- Poll or subscribe to printer status, location, availability, error state, media state, and job status.
+- Fall back to direct printer IP/port gateway mode when no print server is available.
+- Keep API request handling responsive even when printers or print servers are offline.
+- Persist logs, task attempts, printer snapshots, and recovery actions.
+
+### Print Connection Modes
+
+Supported connection modes:
+
+| Mode | Description | Server behavior |
+| --- | --- | --- |
+| `print_server` | A central print server manages printers and status. | Maintain long-lived connection, sync printer inventory/status/location, dispatch tasks through the print server. |
+| `direct_ip` | No print server is available; printers are network devices. | Open TCP/IP connection to printer IP/port, send raw ZPL/EPL, track timeout/retry/failure locally. |
+| `qz_tray` | A workstation-side QZ Tray client performs local printing. | Server queues task, client polls or receives assignment, client reports dispatch result. |
+| `pdf_only` | No physical print dispatch. | Render PDF for validation or manual download. |
+
+The server should prefer `print_server` where available because it can centralize device inventory, status, location, and enterprise print controls. `direct_ip` is the fallback gateway path for warehouses without a print server.
+
 ## Product Modules
 
 ### 1. Label Design
@@ -218,8 +267,11 @@ Print Service should not:
 Print Configuration Gateway manages printers, print routing, and print jobs.
 
 Responsibilities:
-- Store printer network and client-side printing configuration.
-- Manage printer IP, port, DPI/DPMM, paper size, model, and supported formats.
+- Store print server, direct printer, and client-side printing configuration.
+- Manage printer server identity, printer IP, port, DPI/DPMM, paper size, model, location, and supported formats.
+- Maintain long-lived print server connections and heartbeat state.
+- Read printer status and location from the print server when a print server is available.
+- Fall back to direct printer IP/port gateway dispatch when no print server is available.
 - Bind templates to one or more printers.
 - Route print jobs by warehouse, site, business type, template, and priority.
 - Track print queue status and print task lifecycle.
@@ -231,22 +283,24 @@ Primary users:
 - Operations users monitoring print execution.
 
 Initial scope:
-- Register network printers with IP, port, name, site, model, DPI/DPMM, and paper size.
+- Register print servers and sync managed printers where available.
+- Register direct IP printers with IP, port, name, site, model, DPI/DPMM, and paper size when no print server exists.
 - Register optional QZ Tray client printers for browser-connected workstations.
 - Bind templates to allowed printers and default printers.
 - Define route rules by warehouse, site, business type, and template.
 - Allow the same print request to produce a PDF preview instead of dispatching to a printer.
-- Send raw ZPL to a configured printer through direct network printing or QZ Tray.
+- Send raw ZPL through a print server, direct IP socket, or QZ Tray.
 - Queue print tasks and track status.
 - Record print task status and retry count.
 - Support retry, pause, resume, cancel, and manual reprint from task history.
 
 Printer configuration:
-- Required fields: printer name, connection type, site, warehouse, model, DPI/DPMM, paper width, paper height, status.
-- Direct network printers require IP and port.
+- Required fields: printer name, connection type, site, warehouse, location, model, DPI/DPMM, paper width, paper height, status.
+- Print-server printers require print server ID and print server printer name.
+- Direct IP printers require IP and port.
 - QZ Tray printers require workstation/client identity and local printer name.
 - Supported formats should include raw ZPL first, with PDF/PNG print support as future options.
-- Printer health should be checked manually in the minimum version and automatically in later versions.
+- Printer health should be checked from print server status feeds when available, and by direct gateway heartbeat/probe otherwise.
 
 Template-printer binding:
 - A template can define allowed printers and one default printer.
@@ -789,6 +843,31 @@ Printer search filters:
 - `connection_type`
 - `status`
 
+### Manage Print Servers
+
+Endpoints:
+- `GET /api/v1/print-servers`
+- `POST /api/v1/print-servers`
+- `GET /api/v1/print-servers/{id}`
+- `PUT /api/v1/print-servers/{id}`
+- `POST /api/v1/print-servers/{id}/connect`
+- `POST /api/v1/print-servers/{id}/disconnect`
+- `POST /api/v1/print-servers/{id}/sync-printers`
+- `GET /api/v1/print-servers/{id}/status`
+
+Print server configuration fields:
+- `id`
+- `name`
+- `type`: `windows_print_server`, `cups`, `vendor_gateway`, or `custom_http`
+- `endpoint`
+- `auth_type`
+- `status`
+- `last_connected_at`
+- `last_sync_at`
+- `heartbeat_interval_ms`
+
+The server process should maintain a long-lived connection or heartbeat with each enabled print server. If the connection is down, tasks routed to that print server remain queued with clear recovery state and operator actions.
+
 ### Manage Template Printer Bindings
 
 Endpoints:
@@ -977,7 +1056,10 @@ Fields:
 - `name`
 - `site`
 - `warehouse`
-- `connection_type`: `network_socket` or `client_qz_tray`
+- `location`
+- `connection_type`: `print_server`, `direct_ip`, `qz_tray`, or `pdf_only`
+- `print_server_id`
+- `print_server_printer_name`
 - `ip`
 - `port`
 - `client_id`
@@ -988,9 +1070,12 @@ Fields:
 - `paper_height_mm`
 - `supported_formats`
 - `status`
+- `device_state`: `unknown`, `online`, `offline`, `paper_out`, `paused`, `error`, or `maintenance`
 - `paused`
 - `last_health_check_at`
 - `last_health_status`
+- `last_status_at`
+- `last_seen_at`
 - `created_at`
 - `updated_at`
 
@@ -1174,11 +1259,12 @@ Recommended layering:
 - `label-platform-api`: HTTP API, request validation, authentication.
 - `label-print-service`: business-system-facing print entrypoint, JSON/XML normalization, field validation, template selection, and printer route candidate selection.
 - `label-platform-service`: template, data mapping, render, print, and logging services.
-- `label-print-gateway`: printer configuration, route resolution, print queue, device dispatch, QZ Tray integration, retry, and print status lifecycle.
-- `label-platform-web`: management UI for design, testing, configuration, and monitoring.
+- `label-print-gateway`: server-side printer configuration, print server long connection, route resolution, print queue, direct IP dispatch, QZ Tray integration, retry, and print status lifecycle.
+- `label-platform-web`: client management UI for design, testing, configuration, queue recovery, and monitoring.
+- `label-workstation-client`: optional local client for QZ Tray or workstation-only printers.
 - `label-platform-storage`: database schema and repository layer.
 
-The current repository can start by extending the existing HTTP service gradually. If the platform grows large, split upper-layer services into separate crates or a workspace.
+The current repository can start by extending the existing HTTP service gradually. As the platform grows, split upper-layer services into a workspace with clear client/server boundaries. Printer status collection, print server connections, direct IP dispatch, and queue workers must stay server-side.
 
 ## Development Roadmap
 
@@ -1218,11 +1304,14 @@ The current repository can start by extending the existing HTTP service graduall
 
 ### Phase 4: Print Gateway
 
+- Add client/server deployment split to the runtime model.
+- Add print server configuration and long-lived connection/heartbeat management.
+- Add printer inventory/status/location synchronization from print servers.
 - Add printer configuration management for IP, port, DPI/DPMM, paper size, model, site, warehouse, and status.
 - Add template-printer binding.
 - Add routing rules by warehouse, site, business type, template, customer, and supplier.
 - Add PDF preview delivery mode that uses print configuration but does not dispatch to a device.
-- Add raw ZPL print dispatch through direct network printing.
+- Add raw ZPL print dispatch through print server or direct IP fallback.
 - Add optional QZ Tray client print channel.
 - Add print task queue with priority and printer availability checks.
 - Add retry, pause, resume, cancel, and reprint workflows.

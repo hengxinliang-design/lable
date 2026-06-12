@@ -284,6 +284,14 @@
         <h2>3. 系统组件总览</h2>
         <div class="cards-3">
           <div class="card">
+            <h3>客户端</h3>
+            <p>面向运营、IT 和开发人员的浏览器管理台，负责模板制作、字段确认、API 测试、打印配置、队列恢复和日志监控。</p>
+          </div>
+          <div class="card">
+            <h3>服务端</h3>
+            <p>面向业务系统和打印执行的服务进程，负责 REST API、渲染、队列、打印服务器长连接、设备状态采集和直连 IP 网关。</p>
+          </div>
+          <div class="card">
             <h3>Label 制作</h3>
             <p>导入已有 ZPL，保留原始快照，创建工作副本，支持预览、轻量编辑、版本管理和测试样本。</p>
           </div>
@@ -301,7 +309,7 @@
           </div>
           <div class="card">
             <h3>打印配置网关</h3>
-            <p>维护打印机配置、模板绑定、路由规则、打印队列、重试、暂停、取消和补打。</p>
+            <p>维护打印服务器、打印机配置、模板绑定、路由规则、打印队列、重试、暂停、取消和补打。</p>
           </div>
           <div class="card">
             <h3>接口日志监控</h3>
@@ -349,7 +357,8 @@
   -> Print Configuration Gateway
   -> route rule resolution
   -> print queue
-  -> Printer Device / QZ Tray</div>
+  -> Print Server long connection OR Direct Printer IP Gateway
+  -> Printer Device / QZ Tray / PDF only</div>
       </section>
 
       <section>
@@ -410,7 +419,11 @@
         <table>
           <thead><tr><th>能力</th><th>规格</th></tr></thead>
           <tbody>
-            <tr><td>打印机配置</td><td>IP、端口、DPI/DPMM、纸张尺寸、型号、站点、仓库、连接类型。</td></tr>
+            <tr><td>客户端/服务端边界</td><td>客户端只负责配置、监控和人工操作；服务端负责打印服务器连接、队列调度、设备状态采集和物理打印派发。</td></tr>
+            <tr><td>打印服务器连接</td><td>服务端可连接 Windows Print Server、CUPS、厂商网关或自定义 HTTP 网关，并保持长连接/心跳。</td></tr>
+            <tr><td>打印服务器状态同步</td><td>服务端周期读取打印机在线状态、错误状态、纸张/耗材状态、位置、队列状态和最近心跳。</td></tr>
+            <tr><td>直连 IP 网关</td><td>没有打印服务器时，服务端可直接连接打印机 IP/端口，发送原始 ZPL/EPL，并在超时或无响应时进入重试/待人工处理队列。</td></tr>
+            <tr><td>打印机配置</td><td>连接类型、打印服务器 ID、打印服务器设备名、IP、端口、DPI/DPMM、纸张尺寸、型号、位置、站点、仓库。</td></tr>
             <tr><td>模板绑定</td><td>模板可配置允许打印机和默认打印机，可覆盖纸张、DPI、份数。</td></tr>
             <tr><td>路由规则</td><td>按仓库、站点、业务类型、模板、客户、供应商、优先级匹配。</td></tr>
             <tr><td>队列状态</td><td><code>queued</code>、<code>dispatching</code>、<code>sent</code>、<code>completed</code>、<code>failed</code>、<code>paused</code>、<code>canceled</code>。</td></tr>

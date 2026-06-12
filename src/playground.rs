@@ -123,20 +123,23 @@ pub const PLAYGROUND_HTML: &str = r##"<!DOCTYPE html>
   .module-table th, .module-table td { border-bottom: 1px solid var(--border); padding: 9px 10px; text-align: left; font-size: 12px; }
   .module-table th { background: var(--surface2); color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.4px; }
   .module-table tr:last-child td { border-bottom: none; }
-  .field-map-table { min-width: 1040px; table-layout: fixed; }
+  .field-map-table { min-width: 1180px; table-layout: fixed; }
   .field-map-table th:nth-child(1), .field-map-table td:nth-child(1) { width: 82px; }
-  .field-map-table th:nth-child(2), .field-map-table td:nth-child(2) { width: 40%; }
-  .field-map-table th:nth-child(3), .field-map-table td:nth-child(3) { width: 140px; }
-  .field-map-table th:nth-child(4), .field-map-table td:nth-child(4) { width: 280px; }
-  .field-map-table th:nth-child(5), .field-map-table td:nth-child(5) { width: 96px; }
-  .field-source, .field-api-name, .field-value-input {
+  .field-map-table th:nth-child(2), .field-map-table td:nth-child(2) { width: 38%; }
+  .field-map-table th:nth-child(3), .field-map-table td:nth-child(3) { width: 170px; }
+  .field-map-table th:nth-child(4), .field-map-table td:nth-child(4) { width: 140px; }
+  .field-map-table th:nth-child(5), .field-map-table td:nth-child(5) { width: 260px; }
+  .field-map-table th:nth-child(6), .field-map-table td:nth-child(6) { width: 96px; }
+  .field-source, .field-api-name, .field-value-input, .field-element-kind {
     width: 100%; min-width: 0; border: 1px solid var(--border); border-radius: 5px;
     background: #fff; color: var(--text); font: 12px/1.35 var(--font-ui);
     padding: 7px 8px; outline: none;
   }
   .field-api-name { font-family: var(--font-mono); }
   .field-value-input { min-height: 34px; resize: vertical; overflow: hidden; }
-  .field-source:focus, .field-api-name:focus, .field-value-input:focus { border-color: var(--lagoon); box-shadow: 0 0 0 2px rgba(21,156,186,0.12); }
+  .field-source:focus, .field-api-name:focus, .field-value-input:focus, .field-element-kind:focus { border-color: var(--lagoon); box-shadow: 0 0 0 2px rgba(21,156,186,0.12); }
+  .field-kind-note { display: block; margin-top: 5px; color: var(--text-dim); font-size: 11px; line-height: 1.25; }
+  .field-kind-note.barcode { color: var(--deep-teal); font-weight: 700; }
   .row-action {
     width: 100%; border: 1px solid var(--border); border-radius: 5px; background: #fff;
     color: var(--error); font: 12px/1.35 var(--font-ui); padding: 7px 8px; cursor: pointer;
@@ -583,8 +586,8 @@ pub const PLAYGROUND_HTML: &str = r##"<!DOCTYPE html>
         <h3>字段确认表单</h3>
         <div class="scroll-box field-map-scroll">
           <table class="module-table field-map-table">
-            <thead><tr><th>Field</th><th>Value</th><th>Source</th><th>API Name</th><th>Action</th></tr></thead>
-            <tbody id="field-map-body"><tr><td colspan="5">No extracted fields yet.</td></tr></tbody>
+            <thead><tr><th>Field</th><th>Value</th><th>Element</th><th>Source</th><th>API Name</th><th>Action</th></tr></thead>
+            <tbody id="field-map-body"><tr><td colspan="6">No extracted fields yet.</td></tr></tbody>
           </table>
         </div>
       </div>
@@ -669,7 +672,7 @@ pub const PLAYGROUND_HTML: &str = r##"<!DOCTYPE html>
     <div class="module-title">
       <div>
         <h2>打印配置网关</h2>
-        <p>管理打印机、模板绑定、路由规则和打印任务队列。物理设备无响应时不能阻塞 API 服务，必须醒目标识待处理任务。</p>
+        <p>客户端负责配置、监控和人工恢复；服务端负责打印服务器长连接、打印机状态采集、直连 IP 网关和打印任务队列。</p>
       </div>
       <span class="status-pill">Queue Control</span>
     </div>
@@ -684,9 +687,13 @@ pub const PLAYGROUND_HTML: &str = r##"<!DOCTYPE html>
       <div class="metric"><strong id="metric-health">Healthy</strong><span>Queue Health</span></div>
     </div>
     <div class="form-grid">
+      <div class="form-field"><label for="printer-connection">Connection Mode</label><select id="printer-connection"><option value="print_server">Print Server</option><option value="direct_ip">Direct Printer IP</option><option value="qz_tray">QZ Tray Client</option><option value="pdf_only">PDF Only</option></select></div>
       <div class="form-field"><label for="printer-id">Printer ID</label><input id="printer-id" value="warehouse_a_01"></div>
       <div class="form-field"><label for="printer-ip">IP</label><input id="printer-ip" value="192.168.1.50"></div>
       <div class="form-field"><label for="printer-port">Port</label><input id="printer-port" value="9100"></div>
+      <div class="form-field"><label for="print-server-endpoint">Print Server Endpoint</label><input id="print-server-endpoint" value="print-server://warehouse-a"></div>
+      <div class="form-field"><label for="server-printer-name">Server Printer Name</label><input id="server-printer-name" value="Zebra-WH-A-01"></div>
+      <div class="form-field"><label for="printer-location">Location</label><input id="printer-location" value="Dock A / Pack Station 1"></div>
       <div class="form-field"><label for="printer-site">Site / Warehouse</label><input id="printer-site" value="WH-A"></div>
     </div>
     <div class="action-row">
@@ -700,7 +707,7 @@ pub const PLAYGROUND_HTML: &str = r##"<!DOCTYPE html>
         <h3>打印机配置</h3>
         <div class="scroll-box">
           <table class="module-table">
-            <thead><tr><th>Printer</th><th>Endpoint</th><th>Site</th><th>Status</th></tr></thead>
+            <thead><tr><th>Printer</th><th>Mode</th><th>Endpoint</th><th>Status</th></tr></thead>
             <tbody id="printer-list-body"><tr><td colspan="4">No printers saved.</td></tr></tbody>
           </table>
         </div>
@@ -941,24 +948,85 @@ pub const PLAYGROUND_HTML: &str = r##"<!DOCTYPE html>
       .replace(/^_+|_+$/g, "")
       .toLowerCase();
     if (!cleaned || cleaned.length > 28) cleaned = "field_" + (index + 1);
+    if (!/^[a-zA-Z_]/.test(cleaned)) cleaned = "field_" + (index + 1);
     return cleaned;
+  }
+
+  function barcodeFieldName(element, index) {
+    var suffix = String(element.command || "barcode").replace(/^\^/, "").toLowerCase();
+    return "barcode_" + suffix + "_" + (index + 1);
+  }
+
+  var BARCODE_COMMANDS = {
+    "^BC": "Barcode - Code 128",
+    "^BE": "Barcode - EAN-13",
+    "^B2": "Barcode - Interleaved 2 of 5",
+    "^B3": "Barcode - Code 39",
+    "^B7": "Barcode - PDF417",
+    "^BO": "Barcode - Aztec",
+    "^BX": "Barcode - Data Matrix",
+    "^BQ": "Barcode - QR Code",
+    "^BD": "Barcode - MaxiCode"
+  };
+
+  function detectFieldElement(zpl, fdIndex) {
+    var start = Math.max(zpl.lastIndexOf("^FS", fdIndex), zpl.lastIndexOf("^XA", fdIndex));
+    var context = zpl.slice(start < 0 ? 0 : start, fdIndex);
+    var barcode = null;
+    Object.keys(BARCODE_COMMANDS).forEach(function (command) {
+      var idx = context.toUpperCase().lastIndexOf(command);
+      if (idx >= 0 && (!barcode || idx > barcode.index)) {
+        barcode = { index: idx, command: command, label: BARCODE_COMMANDS[command] };
+      }
+    });
+    if (barcode) {
+      return {
+        kind: "barcode",
+        command: barcode.command,
+        label: barcode.label,
+        note: "API value will regenerate this barcode"
+      };
+    }
+    return { kind: "text", command: "", label: "Text", note: "Visible text field" };
+  }
+
+  function elementLabel(field) {
+    if (!field) return "Text";
+    if (field.elementKind === "barcode") return field.barcodeType || "Barcode";
+    if (field.elementKind === "manual_barcode") return field.barcodeType || "Barcode - Manual";
+    return "Text";
+  }
+
+  function elementOptions(field) {
+    var current = field.elementKind || "text";
+    var options = [
+      ["text", "Text"],
+      ["barcode", elementLabel(field).indexOf("Barcode") === 0 ? elementLabel(field) : "Barcode"]
+    ];
+    return options.map(function (option) {
+      return '<option value="' + option[0] + '"' + (current === option[0] || (current === "manual_barcode" && option[0] === "barcode") ? " selected" : "") + '>' + escapeHtml(option[1]) + '</option>';
+    }).join("");
   }
 
   function extractFields() {
     var zpl = input.value;
     var found = [];
-    var seen = {};
     var re = /\^FD([\s\S]*?)\^FS/g;
     var match;
     while ((match = re.exec(zpl)) && found.length < 80) {
       var value = match[1].trim();
       if (!value) continue;
+      var element = detectFieldElement(zpl, match.index);
       found.push({
         label: "field_" + (found.length + 1),
         originalValue: value,
         value: value,
-        source: value.indexOf("{{") >= 0 ? "api_field" : "fixed",
-        apiName: fieldName(value, found.length),
+        source: value.indexOf("{{") >= 0 || element.kind === "barcode" ? "api_field" : "fixed",
+        apiName: element.kind === "barcode" ? barcodeFieldName(element, found.length) : fieldName(value, found.length),
+        elementKind: element.kind,
+        barcodeCommand: element.command,
+        barcodeType: element.label,
+        elementNote: element.note,
         start: match.index + 3,
         end: match.index + 3 + match[1].length,
         deleted: false,
@@ -975,14 +1043,18 @@ pub const PLAYGROUND_HTML: &str = r##"<!DOCTYPE html>
     if (!body) return;
     var visibleFields = currentFields.filter(function (field) { return !field.deleted; });
     if (!visibleFields.length) {
-      body.innerHTML = '<tr><td colspan="5">No extracted fields yet.</td></tr>';
+      body.innerHTML = '<tr><td colspan="6">No extracted fields yet.</td></tr>';
       return;
     }
     body.innerHTML = currentFields.map(function (field, index) {
       if (field.deleted) return "";
+      var isBarcode = field.elementKind === "barcode" || field.elementKind === "manual_barcode";
+      var noteClass = isBarcode ? "field-kind-note barcode" : "field-kind-note";
       return '<tr>' +
         '<td>' + escapeHtml(field.label) + '</td>' +
         '<td><textarea class="field-value-input" data-index="' + index + '">' + escapeHtml(field.value) + '</textarea></td>' +
+        '<td><select class="field-element-kind" data-index="' + index + '">' + elementOptions(field) + '</select>' +
+          '<span class="' + noteClass + '">' + escapeHtml(field.elementNote || elementLabel(field)) + '</span></td>' +
         '<td><select class="field-source" data-index="' + index + '">' +
           ["manual", "api_field", "fixed", "ignored"].map(function (source) {
             return '<option value="' + source + '"' + (field.source === source ? " selected" : "") + '>' + source + '</option>';
@@ -1000,9 +1072,21 @@ pub const PLAYGROUND_HTML: &str = r##"<!DOCTYPE html>
       var source = document.querySelector('.field-source[data-index="' + index + '"]');
       var apiName = document.querySelector('.field-api-name[data-index="' + index + '"]');
       var value = document.querySelector('.field-value-input[data-index="' + index + '"]');
+      var elementKind = document.querySelector('.field-element-kind[data-index="' + index + '"]');
       if (source) field.source = source.value;
       if (apiName) field.apiName = apiName.value.trim() || field.apiName;
       if (value) field.value = value.value;
+      if (elementKind) {
+        field.elementKind = elementKind.value === "barcode" ? "barcode" : "text";
+        if (field.elementKind === "barcode") {
+          field.barcodeType = field.barcodeType || "Barcode";
+          field.elementNote = "API value will regenerate this barcode";
+        } else {
+          field.barcodeType = "";
+          field.barcodeCommand = "";
+          field.elementNote = "Visible text field";
+        }
+      }
     });
     return currentFields;
   }
@@ -1051,6 +1135,20 @@ pub const PLAYGROUND_HTML: &str = r##"<!DOCTYPE html>
     return data;
   }
 
+  function schemaFromMappings() {
+    return collectFieldMappings()
+      .filter(function (field) { return !field.deleted && field.source === "api_field"; })
+      .map(function (field) {
+        return {
+          name: field.apiName,
+          kind: field.elementKind === "barcode" ? "barcode" : "text",
+          barcode_type: field.elementKind === "barcode" ? (field.barcodeType || "Barcode") : null,
+          barcode_command: field.elementKind === "barcode" ? (field.barcodeCommand || "") : null,
+          sample_value: field.value
+        };
+      });
+  }
+
   function buildMappedZpl() {
     collectFieldMappings();
     var base = input.value;
@@ -1074,6 +1172,10 @@ pub const PLAYGROUND_HTML: &str = r##"<!DOCTYPE html>
       value: "",
       source: "api_field",
       apiName: "field_" + (index + 1),
+      elementKind: "text",
+      barcodeCommand: "",
+      barcodeType: "",
+      elementNote: "Manual data field",
       start: null,
       end: null,
       deleted: false,
@@ -1138,10 +1240,12 @@ pub const PLAYGROUND_HTML: &str = r##"<!DOCTYPE html>
       template_id: currentTemplate.id,
       delivery_mode: mode,
       data: dataFromMappings(),
+      field_schema: schemaFromMappings(),
       manual_values: {}
     };
     if (mode === "device_print") {
       body.printer_id = document.getElementById("printer-id").value || "warehouse_a_01";
+      body.connection_mode = document.getElementById("printer-connection").value || "print_server";
       body.copies = 1;
     }
     var node = document.getElementById("api-request-json");
@@ -1190,17 +1294,28 @@ pub const PLAYGROUND_HTML: &str = r##"<!DOCTYPE html>
       return;
     }
     body.innerHTML = printers.map(function (printer) {
-      return '<tr><td>' + escapeHtml(printer.id) + '</td><td>' + escapeHtml(printer.ip + ":" + printer.port) + '</td><td>' + escapeHtml(printer.site) + '</td><td><span class="chip ok">ready</span></td></tr>';
+      return '<tr><td>' + escapeHtml(printer.id) + '<br><span class="field-kind-note">' + escapeHtml(printer.location || printer.site) + '</span></td><td>' + escapeHtml(printer.connection_mode) + '</td><td>' + escapeHtml(printer.endpoint) + '</td><td><span class="chip ok">ready</span></td></tr>';
     }).join("");
   }
 
   function savePrinter() {
     var printers = readStore("label_platform_printers", []);
+    var connectionMode = document.getElementById("printer-connection").value || "print_server";
+    var endpoint = connectionMode === "print_server"
+      ? document.getElementById("print-server-endpoint").value + " / " + document.getElementById("server-printer-name").value
+      : connectionMode === "direct_ip"
+        ? document.getElementById("printer-ip").value + ":" + document.getElementById("printer-port").value
+        : connectionMode;
     var printer = {
       id: document.getElementById("printer-id").value || "warehouse_a_01",
+      connection_mode: connectionMode,
+      endpoint: endpoint,
+      print_server_endpoint: document.getElementById("print-server-endpoint").value,
+      print_server_printer_name: document.getElementById("server-printer-name").value,
       ip: document.getElementById("printer-ip").value || "192.168.1.50",
       port: document.getElementById("printer-port").value || "9100",
-      site: document.getElementById("printer-site").value || "WH-A"
+      site: document.getElementById("printer-site").value || "WH-A",
+      location: document.getElementById("printer-location").value || ""
     };
     printers = printers.filter(function (item) { return item.id !== printer.id; });
     printers.unshift(printer);
@@ -1598,7 +1713,10 @@ pub const PLAYGROUND_HTML: &str = r##"<!DOCTYPE html>
   });
 
   document.getElementById("field-map-body").addEventListener("change", function (event) {
-    if (event.target && event.target.classList.contains("field-source")) {
+    if (event.target && (event.target.classList.contains("field-source") || event.target.classList.contains("field-element-kind"))) {
+      collectFieldMappings();
+      if (event.target.classList.contains("field-element-kind")) renderFieldRows();
+      buildApiRequest("pdf_preview");
       setStatus("data-preview-status", "needs preview", "chip warn");
       setStatus("config-status", "edited", "chip warn");
     }
