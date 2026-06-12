@@ -123,19 +123,24 @@ pub const PLAYGROUND_HTML: &str = r##"<!DOCTYPE html>
   .module-table th, .module-table td { border-bottom: 1px solid var(--border); padding: 9px 10px; text-align: left; font-size: 12px; }
   .module-table th { background: var(--surface2); color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.4px; }
   .module-table tr:last-child td { border-bottom: none; }
-  .field-map-table { min-width: 860px; table-layout: fixed; }
+  .field-map-table { min-width: 1040px; table-layout: fixed; }
   .field-map-table th:nth-child(1), .field-map-table td:nth-child(1) { width: 82px; }
-  .field-map-table th:nth-child(2), .field-map-table td:nth-child(2) { width: 43%; }
+  .field-map-table th:nth-child(2), .field-map-table td:nth-child(2) { width: 40%; }
   .field-map-table th:nth-child(3), .field-map-table td:nth-child(3) { width: 140px; }
   .field-map-table th:nth-child(4), .field-map-table td:nth-child(4) { width: 280px; }
-  .field-value-cell { white-space: normal; line-height: 1.35; }
-  .field-source, .field-api-name {
+  .field-map-table th:nth-child(5), .field-map-table td:nth-child(5) { width: 96px; }
+  .field-source, .field-api-name, .field-value-input {
     width: 100%; min-width: 0; border: 1px solid var(--border); border-radius: 5px;
     background: #fff; color: var(--text); font: 12px/1.35 var(--font-ui);
     padding: 7px 8px; outline: none;
   }
   .field-api-name { font-family: var(--font-mono); }
-  .field-source:focus, .field-api-name:focus { border-color: var(--lagoon); box-shadow: 0 0 0 2px rgba(21,156,186,0.12); }
+  .field-value-input { min-height: 34px; resize: vertical; overflow: hidden; }
+  .field-source:focus, .field-api-name:focus, .field-value-input:focus { border-color: var(--lagoon); box-shadow: 0 0 0 2px rgba(21,156,186,0.12); }
+  .row-action {
+    width: 100%; border: 1px solid var(--border); border-radius: 5px; background: #fff;
+    color: var(--error); font: 12px/1.35 var(--font-ui); padding: 7px 8px; cursor: pointer;
+  }
   .chip { display: inline-flex; align-items: center; border-radius: 999px; padding: 2px 8px; font-size: 11px; font-weight: 700; background: var(--surface2); color: var(--text-dim); }
   .chip.ok { background: #e4f4f6; color: var(--deep-teal); }
   .chip.warn { background: var(--coral-light); color: #5b241b; }
@@ -164,8 +169,20 @@ pub const PLAYGROUND_HTML: &str = r##"<!DOCTYPE html>
   }
   .two-col { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; }
   .two-col.wide-left { grid-template-columns: minmax(680px, 1.35fr) minmax(360px, 0.85fr); }
+  .two-col.data-workspace { grid-template-columns: minmax(760px, 1.35fr) minmax(420px, 0.85fr); align-items: start; }
   .scroll-box { max-height: 300px; overflow: auto; border: 1px solid var(--border); border-radius: var(--radius); background: #fff; }
-  .scroll-box.field-map-scroll { max-height: 410px; }
+  .scroll-box.field-map-scroll { max-height: 520px; }
+  .data-preview-card { position: sticky; top: 0; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px; }
+  .data-preview-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
+  .data-preview-head h3 { margin: 0; }
+  #data-preview-frame {
+    min-height: 460px; max-height: 65vh; overflow: auto; display: flex; align-items: flex-start;
+    justify-content: center; background: var(--shell); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 12px;
+  }
+  #data-preview-img { display: none; max-width: 100%; background: #fff; border: 1px solid var(--border); box-shadow: 0 10px 26px rgba(1,102,106,0.16); }
+  #data-preview-img.visible { display: block; }
+  #data-preview-empty { margin: auto; color: var(--text-dim); font-size: 12px; text-align: center; }
 
   /* ── Editor panel ── */
   .editor-panel {
@@ -540,23 +557,36 @@ pub const PLAYGROUND_HTML: &str = r##"<!DOCTYPE html>
     </div>
     <div class="action-row">
       <button id="extract-fields-btn" class="action-btn dark">Extract Fields From ZPL</button>
+      <button id="add-field-btn" class="action-btn">Add Field Row</button>
+      <button id="apply-fields-btn" class="action-btn">Apply Field Edits To ZPL</button>
+      <button id="preview-fields-btn" class="action-btn dark">Preview With Fields</button>
       <button id="save-config-btn" class="action-btn primary">Save Data Source Config</button>
       <button id="load-config-btn" class="action-btn">Reload Saved Configs</button>
       <span id="config-status" class="chip">waiting</span>
     </div>
-    <div class="two-col wide-left">
+    <div class="two-col data-workspace">
       <div>
         <h3>字段确认表单</h3>
         <div class="scroll-box field-map-scroll">
           <table class="module-table field-map-table">
-            <thead><tr><th>Field</th><th>Value</th><th>Source</th><th>API Name</th></tr></thead>
-            <tbody id="field-map-body"><tr><td colspan="4">No extracted fields yet.</td></tr></tbody>
+            <thead><tr><th>Field</th><th>Value</th><th>Source</th><th>API Name</th><th>Action</th></tr></thead>
+            <tbody id="field-map-body"><tr><td colspan="5">No extracted fields yet.</td></tr></tbody>
           </table>
         </div>
       </div>
       <div>
-        <h3>可复用配置</h3>
-        <div class="scroll-box">
+        <div class="data-preview-card">
+          <div class="data-preview-head">
+            <h3>Label 预览</h3>
+            <span id="data-preview-status" class="chip">waiting</span>
+          </div>
+          <div id="data-preview-frame">
+            <div id="data-preview-empty">Edit field values, then preview the generated label.</div>
+            <img id="data-preview-img" alt="Data mapped label preview">
+          </div>
+        </div>
+        <h3 style="margin-top:12px">可复用配置</h3>
+        <div class="scroll-box" style="max-height:190px">
           <table class="module-table">
             <thead><tr><th>Name</th><th>Scope</th><th>Fields</th><th>Status</th></tr></thead>
             <tbody id="config-list-body"><tr><td colspan="4">No saved configs.</td></tr></tbody>
@@ -847,13 +877,17 @@ pub const PLAYGROUND_HTML: &str = r##"<!DOCTYPE html>
     var match;
     while ((match = re.exec(zpl)) && found.length < 80) {
       var value = match[1].trim();
-      if (!value || seen[value]) continue;
-      seen[value] = true;
+      if (!value) continue;
       found.push({
         label: "field_" + (found.length + 1),
+        originalValue: value,
         value: value,
         source: value.indexOf("{{") >= 0 ? "api_field" : "fixed",
-        apiName: fieldName(value, found.length)
+        apiName: fieldName(value, found.length),
+        start: match.index + 3,
+        end: match.index + 3 + match[1].length,
+        deleted: false,
+        manual: false
       });
     }
     currentFields = found;
@@ -864,30 +898,36 @@ pub const PLAYGROUND_HTML: &str = r##"<!DOCTYPE html>
   function renderFieldRows() {
     var body = document.getElementById("field-map-body");
     if (!body) return;
-    if (!currentFields.length) {
-      body.innerHTML = '<tr><td colspan="4">No extracted fields yet.</td></tr>';
+    var visibleFields = currentFields.filter(function (field) { return !field.deleted; });
+    if (!visibleFields.length) {
+      body.innerHTML = '<tr><td colspan="5">No extracted fields yet.</td></tr>';
       return;
     }
     body.innerHTML = currentFields.map(function (field, index) {
+      if (field.deleted) return "";
       return '<tr>' +
         '<td>' + escapeHtml(field.label) + '</td>' +
-        '<td class="field-value-cell">' + escapeHtml(field.value) + '</td>' +
+        '<td><textarea class="field-value-input" data-index="' + index + '">' + escapeHtml(field.value) + '</textarea></td>' +
         '<td><select class="field-source" data-index="' + index + '">' +
           ["manual", "api_field", "fixed", "ignored"].map(function (source) {
             return '<option value="' + source + '"' + (field.source === source ? " selected" : "") + '>' + source + '</option>';
           }).join("") +
         '</select></td>' +
         '<td><input class="field-api-name" data-index="' + index + '" value="' + escapeHtml(field.apiName) + '"></td>' +
+        '<td><button class="row-action delete-field-btn" data-index="' + index + '">Delete</button></td>' +
       '</tr>';
     }).join("");
   }
 
   function collectFieldMappings() {
     currentFields.forEach(function (field, index) {
+      if (field.deleted) return;
       var source = document.querySelector('.field-source[data-index="' + index + '"]');
       var apiName = document.querySelector('.field-api-name[data-index="' + index + '"]');
+      var value = document.querySelector('.field-value-input[data-index="' + index + '"]');
       if (source) field.source = source.value;
       if (apiName) field.apiName = apiName.value.trim() || field.apiName;
+      if (value) field.value = value.value;
     });
     return currentFields;
   }
@@ -895,6 +935,7 @@ pub const PLAYGROUND_HTML: &str = r##"<!DOCTYPE html>
   function saveDataConfig() {
     collectFieldMappings();
     var configs = readStore("label_platform_data_configs", []);
+    var activeFields = currentFields.filter(function (field) { return !field.deleted; });
     var cfg = {
       id: "cfg_" + Date.now(),
       template_id: currentTemplate.id,
@@ -903,7 +944,7 @@ pub const PLAYGROUND_HTML: &str = r##"<!DOCTYPE html>
       customer: document.getElementById("config-customer").value,
       warehouse: document.getElementById("config-warehouse").value,
       process: document.getElementById("config-process").value,
-      fields: currentFields,
+      fields: activeFields,
       status: "active"
     };
     configs.unshift(cfg);
@@ -930,9 +971,86 @@ pub const PLAYGROUND_HTML: &str = r##"<!DOCTYPE html>
   function dataFromMappings() {
     var data = {};
     collectFieldMappings().forEach(function (field) {
-      if (field.source === "api_field") data[field.apiName] = field.value;
+      if (!field.deleted && field.source === "api_field") data[field.apiName] = field.value;
     });
     return data;
+  }
+
+  function buildMappedZpl() {
+    collectFieldMappings();
+    var base = input.value;
+    var replacements = currentFields
+      .filter(function (field) {
+        return !field.deleted && !field.manual && typeof field.start === "number" && field.source !== "ignored";
+      })
+      .sort(function (a, b) { return b.start - a.start; });
+    replacements.forEach(function (field) {
+      base = base.slice(0, field.start) + field.value + base.slice(field.end);
+    });
+    return base;
+  }
+
+  function addManualField() {
+    collectFieldMappings();
+    var index = currentFields.length;
+    currentFields.push({
+      label: "field_" + (index + 1),
+      originalValue: "",
+      value: "",
+      source: "api_field",
+      apiName: "field_" + (index + 1),
+      start: null,
+      end: null,
+      deleted: false,
+      manual: true
+    });
+    renderFieldRows();
+    setStatus("config-status", "field row added", "chip ok");
+  }
+
+  function deleteField(index) {
+    if (!currentFields[index]) return;
+    currentFields[index].deleted = true;
+    renderFieldRows();
+    setStatus("config-status", "field row deleted", "chip warn");
+  }
+
+  function applyFieldEditsToTemplate() {
+    var mapped = buildMappedZpl();
+    input.value = mapped;
+    currentTemplate.content = "";
+    extractFields();
+    setStatus("config-status", "field edits applied to ZPL", "chip ok");
+    return ensureTemplateSaved();
+  }
+
+  function previewFieldMappedLabel() {
+    var params = getParams();
+    var img = document.getElementById("data-preview-img");
+    var empty = document.getElementById("data-preview-empty");
+    setStatus("data-preview-status", "rendering", "chip warn");
+    fetch(buildUrl(params, null), {
+      method: "POST",
+      headers: { "Content-Type": ctFor(params.fmt) },
+      body: buildMappedZpl()
+    })
+    .then(function (res) {
+      if (!res.ok) return res.text().then(function (txt) { throw new Error(txt || res.status); });
+      return res.blob();
+    })
+    .then(function (blob) {
+      var url = URL.createObjectURL(blob);
+      img.src = url;
+      img.classList.add("visible");
+      empty.style.display = "none";
+      setStatus("data-preview-status", "preview ready", "chip ok");
+    })
+    .catch(function (err) {
+      img.classList.remove("visible");
+      empty.style.display = "block";
+      empty.textContent = "Preview failed: " + err.message;
+      setStatus("data-preview-status", "preview failed", "chip bad");
+    });
   }
 
   function buildApiRequest(mode) {
@@ -1313,11 +1431,28 @@ pub const PLAYGROUND_HTML: &str = r##"<!DOCTYPE html>
   document.getElementById("extract-fields-btn").addEventListener("click", function () {
     extractFields();
     setStatus("config-status", currentFields.length + " fields extracted", "chip ok");
+    previewFieldMappedLabel();
   });
+
+  document.getElementById("add-field-btn").addEventListener("click", addManualField);
+
+  document.getElementById("apply-fields-btn").addEventListener("click", function () {
+    applyFieldEditsToTemplate()
+      .then(function () {
+        previewFieldMappedLabel();
+        buildApiRequest("pdf_preview");
+      })
+      .catch(function (err) { setStatus("config-status", err.message, "chip bad"); });
+  });
+
+  document.getElementById("preview-fields-btn").addEventListener("click", previewFieldMappedLabel);
 
   document.getElementById("save-config-btn").addEventListener("click", function () {
     ensureTemplateSaved()
-      .then(saveDataConfig)
+      .then(function () {
+        saveDataConfig();
+        previewFieldMappedLabel();
+      })
       .catch(function (err) { setStatus("config-status", err.message, "chip bad"); });
   });
 
@@ -1354,6 +1489,26 @@ pub const PLAYGROUND_HTML: &str = r##"<!DOCTYPE html>
     refreshLogs();
   });
 
+  document.getElementById("field-map-body").addEventListener("click", function (event) {
+    if (event.target && event.target.classList.contains("delete-field-btn")) {
+      deleteField(parseInt(event.target.getAttribute("data-index"), 10));
+    }
+  });
+
+  document.getElementById("field-map-body").addEventListener("input", function (event) {
+    if (event.target && (event.target.classList.contains("field-value-input") || event.target.classList.contains("field-api-name"))) {
+      setStatus("data-preview-status", "needs preview", "chip warn");
+      setStatus("config-status", "edited", "chip warn");
+    }
+  });
+
+  document.getElementById("field-map-body").addEventListener("change", function (event) {
+    if (event.target && event.target.classList.contains("field-source")) {
+      setStatus("data-preview-status", "needs preview", "chip warn");
+      setStatus("config-status", "edited", "chip warn");
+    }
+  });
+
   input.addEventListener("keydown", function (e) {
     if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
       e.preventDefault();
@@ -1367,6 +1522,7 @@ pub const PLAYGROUND_HTML: &str = r##"<!DOCTYPE html>
   renderConfigList();
   renderPrinters();
   buildApiRequest("pdf_preview");
+  previewFieldMappedLabel();
   refreshDashboard();
   refreshLogs();
   setInterval(function () {
