@@ -184,13 +184,16 @@ pub const PLAYGROUND_HTML: &str = r##"<!DOCTYPE html>
   .preview-tool-btn.active { background: var(--deep-teal); color: #fff; border-color: var(--deep-teal); }
   .preview-tool-label { color: var(--text-dim); font-size: 12px; min-width: 46px; text-align: center; }
   #data-preview-frame {
-    min-height: 460px; max-height: 65vh; overflow: auto; display: flex; align-items: flex-start;
-    justify-content: center; background: var(--shell); border: 1px solid var(--border);
+    min-height: 460px; max-height: 65vh; overflow: auto; background: var(--shell); border: 1px solid var(--border);
     border-radius: var(--radius); padding: 12px;
+  }
+  .data-preview-stage {
+    min-width: 100%; min-height: 436px; display: flex; align-items: center; justify-content: center;
+    padding: 18px; box-sizing: border-box;
   }
   #data-preview-img {
     display: none; max-width: 100%; background: #fff; border: 1px solid var(--border);
-    box-shadow: 0 10px 26px rgba(1,102,106,0.16); transform-origin: top center;
+    box-shadow: 0 10px 26px rgba(1,102,106,0.16); transform-origin: center center;
   }
   #data-preview-img.visible { display: block; }
   #data-preview-empty { margin: auto; color: var(--text-dim); font-size: 12px; text-align: center; }
@@ -602,8 +605,10 @@ pub const PLAYGROUND_HTML: &str = r##"<!DOCTYPE html>
             <span id="preview-rotation-label" class="preview-tool-label">0°</span>
           </div>
           <div id="data-preview-frame">
-            <div id="data-preview-empty">Edit field values, then preview the generated label.</div>
-            <img id="data-preview-img" alt="Data mapped label preview">
+            <div class="data-preview-stage">
+              <div id="data-preview-empty">Edit field values, then preview the generated label.</div>
+              <img id="data-preview-img" alt="Data mapped label preview">
+            </div>
           </div>
         </div>
         <h3 style="margin-top:12px">可复用配置</h3>
