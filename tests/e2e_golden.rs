@@ -122,11 +122,6 @@ fn golden_zpl_with_tolerance(name: &str, tolerance: f64) {
     );
 }
 
-/// Run a golden-file comparison for an EPL test case.
-fn golden_epl(name: &str) {
-    golden_epl_with_tolerance(name, LABEL_TOLERANCE);
-}
-
 fn golden_epl_with_tolerance(name: &str, tolerance: f64) {
     let dir = testdata_dir();
     let input = dir.join(format!("{}.epl", name));
