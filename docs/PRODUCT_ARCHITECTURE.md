@@ -194,6 +194,25 @@ Error code standard:
 - Include `request_id` in every error response for log lookup.
 - Keep error messages user-readable while preserving technical detail in server logs.
 
+Print Service component boundary:
+- Print Service is the business-system-facing print entrypoint.
+- It receives RESTful print requests from external business systems.
+- It accepts JSON first and should support XML input through a conversion layer.
+- It normalizes incoming JSON/XML into the confirmed template field model.
+- It performs data conversion, field mapping, default value filling, and transformation rules.
+- It validates required fields, field types, lengths, allowed values, and business rules before creating print work.
+- It selects the correct template from request parameters, route context, or configured defaults.
+- It selects a target printer or printer route candidate using warehouse, site, business type, customer, supplier, and template.
+- It creates either a PDF preview response or a print task request.
+- It passes validated print work to Print Configuration Gateway for routing, queueing, device dispatch, retry, and status management.
+- It records API request logs, render logs, validation errors, and the resulting print task ID.
+
+Print Service should not:
+- Store low-level printer connection details directly.
+- Own printer health checks or queue worker scheduling.
+- Dispatch raw ZPL to devices by itself.
+- Replace Print Configuration Gateway routing and task lifecycle management.
+
 ### 4. Print Configuration Gateway
 
 Print Configuration Gateway manages printers, print routing, and print jobs.
@@ -333,6 +352,59 @@ API Encapsulation And Testing
         +--> Interface Logs And Monitoring
         |
         v
+Print Service
+        |
+        +--> Data Source Processing
+        |
+        +--> Label Design / Template Store
+        |
+        +--> labelize Rendering Driver
+        |
+        +--> PNG/PDF Preview
+        |
+        v
+Print Configuration Gateway
+        |
+        v
+Network Printer / QZ Tray Client
+```
+
+Detailed print flow:
+
+```text
+Business System
+        |
+        v
+Print Service REST API
+        |
+        +--> JSON/XML normalization
+        +--> field mapping and validation
+        +--> template selection
+        +--> printer or route candidate selection
+        +--> labelize render / PDF preview when requested
+        |
+        v
+Print Configuration Gateway
+        |
+        +--> route rule resolution
+        +--> print queue
+        +--> retry / pause / cancel / reprint
+        |
+        v
+Printer Device / QZ Tray
+```
+
+General render flow:
+
+```text
+Business System / User
+        |
+        v
+API Encapsulation And Testing
+        |
+        +--> Interface Logs And Monitoring
+        |
+        v
 Data Source Processing
         |
         v
@@ -347,7 +419,7 @@ labelize Rendering Driver
 Print Configuration Gateway
         |
         v
-Network Printer
+Network Printer / QZ Tray Client
 ```
 
 ## Suggested MVP
@@ -1092,7 +1164,9 @@ Fields:
 Recommended layering:
 - `labelize-core`: existing parser, renderer, encoder logic.
 - `label-platform-api`: HTTP API, request validation, authentication.
+- `label-print-service`: business-system-facing print entrypoint, JSON/XML normalization, field validation, template selection, and printer route candidate selection.
 - `label-platform-service`: template, data mapping, render, print, and logging services.
+- `label-print-gateway`: printer configuration, route resolution, print queue, device dispatch, QZ Tray integration, retry, and print status lifecycle.
 - `label-platform-web`: management UI for design, testing, configuration, and monitoring.
 - `label-platform-storage`: database schema and repository layer.
 
