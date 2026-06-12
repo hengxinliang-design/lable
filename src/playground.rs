@@ -109,10 +109,14 @@ pub const PLAYGROUND_HTML: &str = r##"<!DOCTYPE html>
   .module-card h3 { font-size: 13px; margin-bottom: 8px; color: var(--deep-teal); }
   .module-card p, .module-card li { color: var(--text-dim); font-size: 12px; line-height: 1.45; }
   .module-card ul { margin-left: 16px; }
+  .module-card.compact { min-height: 0; }
   .metric-row { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-bottom: 12px; }
   .metric { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px; }
   .metric strong { display: block; font-size: 24px; color: var(--deep-teal); line-height: 1.1; }
   .metric span { color: var(--text-dim); font-size: 12px; }
+  .context-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; background: #e4f4f6; border: 1px solid rgba(1,102,106,0.18); border-radius: var(--radius); padding: 10px 12px; margin-bottom: 12px; }
+  .context-bar strong { color: var(--deep-teal); }
+  .context-bar span { color: var(--text-dim); font-size: 12px; }
   .alert-strip { border: 2px solid var(--coral); background: #fff1ee; border-radius: var(--radius); padding: 13px 14px; margin-bottom: 12px; }
   .alert-strip strong { display: block; color: var(--error); margin-bottom: 4px; }
   .module-table { width: 100%; border-collapse: collapse; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
@@ -122,6 +126,31 @@ pub const PLAYGROUND_HTML: &str = r##"<!DOCTYPE html>
   .chip { display: inline-flex; align-items: center; border-radius: 999px; padding: 2px 8px; font-size: 11px; font-weight: 700; background: var(--surface2); color: var(--text-dim); }
   .chip.ok { background: #e4f4f6; color: var(--deep-teal); }
   .chip.warn { background: var(--coral-light); color: #5b241b; }
+  .chip.bad { background: #fff1ee; color: var(--error); }
+  .form-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-bottom: 12px; }
+  .form-field { display: flex; flex-direction: column; gap: 5px; }
+  .form-field label { font-size: 11px; font-weight: 700; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.4px; }
+  .form-field input, .form-field select, .form-field textarea {
+    width: 100%; border: 1px solid var(--border); border-radius: 6px; background: #fff;
+    color: var(--text); font: 12px/1.4 var(--font-ui); padding: 8px; outline: none;
+  }
+  .form-field textarea { min-height: 190px; font-family: var(--font-mono); resize: vertical; }
+  .form-field input:focus, .form-field select:focus, .form-field textarea:focus { border-color: var(--lagoon); }
+  .action-row { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin: 10px 0 12px; }
+  .action-btn {
+    border: 1px solid var(--border); background: #fff; color: var(--deep-teal);
+    border-radius: 6px; padding: 8px 12px; font-size: 12px; font-weight: 800;
+    cursor: pointer; font-family: var(--font-ui);
+  }
+  .action-btn.primary { background: var(--coral); color: #11181f; border-color: var(--coral); }
+  .action-btn.dark { background: var(--deep-teal); color: #fff; border-color: var(--deep-teal); }
+  .action-btn:disabled { opacity: 0.55; cursor: not-allowed; }
+  .response-box {
+    background: #014e52; color: #f8fbfb; border-radius: var(--radius); padding: 12px;
+    min-height: 96px; white-space: pre-wrap; font: 12px/1.5 var(--font-mono); overflow: auto;
+  }
+  .two-col { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; }
+  .scroll-box { max-height: 300px; overflow: auto; border: 1px solid var(--border); border-radius: var(--radius); background: #fff; }
 
   /* ── Editor panel ── */
   .editor-panel {
@@ -484,30 +513,40 @@ pub const PLAYGROUND_HTML: &str = r##"<!DOCTYPE html>
       </div>
       <span class="status-pill">Field Mapping</span>
     </div>
-    <div class="dashboard-grid">
-      <div class="module-card">
-        <h3>字段确认</h3>
-        <ul>
-          <li>从 ZPL 文本、条码、二维码提取候选字段</li>
-          <li>标记 manual、api_field、fixed、ignored</li>
-          <li>确认后生成 API 请求字段模型</li>
-        </ul>
+    <div class="context-bar">
+      <div><strong id="current-template-name">No template imported</strong><br><span id="current-template-meta">Open a ZPL file in Label 制作 to start configuration.</span></div>
+      <span id="current-template-id" class="chip warn">not saved</span>
+    </div>
+    <div class="form-grid">
+      <div class="form-field"><label for="config-name">Config Name</label><input id="config-name" value="Default workflow mapping"></div>
+      <div class="form-field"><label for="config-customer">Customer</label><input id="config-customer" placeholder="SAIC USA"></div>
+      <div class="form-field"><label for="config-warehouse">Warehouse</label><input id="config-warehouse" placeholder="WH-A"></div>
+      <div class="form-field"><label for="config-process">Business Process</label><input id="config-process" placeholder="Inbound / Shipping"></div>
+    </div>
+    <div class="action-row">
+      <button id="extract-fields-btn" class="action-btn dark">Extract Fields From ZPL</button>
+      <button id="save-config-btn" class="action-btn primary">Save Data Source Config</button>
+      <button id="load-config-btn" class="action-btn">Reload Saved Configs</button>
+      <span id="config-status" class="chip">waiting</span>
+    </div>
+    <div class="two-col">
+      <div>
+        <h3>字段确认表单</h3>
+        <div class="scroll-box">
+          <table class="module-table">
+            <thead><tr><th>Field</th><th>Value</th><th>Source</th><th>API Name</th></tr></thead>
+            <tbody id="field-map-body"><tr><td colspan="4">No extracted fields yet.</td></tr></tbody>
+          </table>
+        </div>
       </div>
-      <div class="module-card">
-        <h3>配置复用</h3>
-        <ul>
-          <li>按客户、供应商、仓库、业务流程保存</li>
-          <li>支持搜索、复制、启用、停用和归档</li>
-          <li>模板版本变化时只处理差异字段</li>
-        </ul>
-      </div>
-      <div class="module-card">
-        <h3>批量生成</h3>
-        <ul>
-          <li>接收 JSON、CSV、Excel 或 API 结果</li>
-          <li>行级校验，支持部分失败</li>
-          <li>有效行可进入渲染或打印队列</li>
-        </ul>
+      <div>
+        <h3>可复用配置</h3>
+        <div class="scroll-box">
+          <table class="module-table">
+            <thead><tr><th>Name</th><th>Scope</th><th>Fields</th><th>Status</th></tr></thead>
+            <tbody id="config-list-body"><tr><td colspan="4">No saved configs.</td></tr></tbody>
+          </table>
+        </div>
       </div>
     </div>
   </div>
@@ -522,18 +561,33 @@ pub const PLAYGROUND_HTML: &str = r##"<!DOCTYPE html>
       </div>
       <span class="status-pill">API Console</span>
     </div>
-    <div class="dashboard-grid">
-      <div class="module-card">
-        <h3>调试页面</h3>
-        <p>选择模板和数据源配置后自动生成请求 JSON，业务人员可先生成 PDF 标签确认，不触发物理打印。</p>
+    <div class="context-bar">
+      <div><strong id="api-template-name">No template selected</strong><br><span>Use current imported template and saved data source config.</span></div>
+      <span id="api-mode-chip" class="chip ok">pdf_preview</span>
+    </div>
+    <div class="two-col">
+      <div class="module-card compact">
+        <h3>Request JSON</h3>
+        <div class="form-field">
+          <textarea id="api-request-json" spellcheck="false">{
+  "template_id": "",
+  "delivery_mode": "pdf_preview",
+  "data": {}
+}</textarea>
+        </div>
+        <div class="action-row">
+          <button id="build-api-request-btn" class="action-btn">Build From Mapping</button>
+          <button id="api-pdf-btn" class="action-btn primary">POST PDF Test</button>
+          <button id="api-print-btn" class="action-btn dark">POST Print Task</button>
+        </div>
       </div>
-      <div class="module-card">
-        <h3>返回类型</h3>
-        <p><span class="chip ok">PNG</span> <span class="chip ok">PDF</span> <span class="chip ok">ZPL</span> <span class="chip warn">Print Task ID</span></p>
-      </div>
-      <div class="module-card">
-        <h3>接口规范</h3>
-        <p>API Key 鉴权、参数校验、稳定错误码、request_id 贯穿日志和任务链路。</p>
+      <div class="module-card compact">
+        <h3>Response</h3>
+        <div id="api-response-box" class="response-box">Waiting for request...</div>
+        <div class="action-row">
+          <a id="api-output-link" class="action-btn" href="#" target="_blank" style="display:none;text-decoration:none">Open Output</a>
+          <button id="copy-curl-btn" class="action-btn">Generate cURL</button>
+        </div>
       </div>
     </div>
   </div>
@@ -558,15 +612,38 @@ pub const PLAYGROUND_HTML: &str = r##"<!DOCTYPE html>
       <div class="metric"><strong id="metric-retry">0</strong><span>Retry Pending</span></div>
       <div class="metric"><strong id="metric-health">Healthy</strong><span>Queue Health</span></div>
     </div>
-    <table class="module-table">
-      <thead><tr><th>能力</th><th>当前设计</th><th>人工动作</th></tr></thead>
-      <tbody>
-        <tr><td>打印机配置</td><td>IP、端口、DPI/DPMM、纸张、型号、站点、仓库、QZ Tray</td><td>测试连接 / 停用</td></tr>
-        <tr><td>模板绑定</td><td>模板允许打印机、默认打印机、纸张和份数覆盖</td><td>改派 / 管理绑定</td></tr>
-        <tr><td>路由规则</td><td>按仓库、站点、业务类型、客户、供应商、模板、优先级匹配</td><td>启停规则 / 调整优先级</td></tr>
-        <tr><td>任务队列</td><td>queued、dispatching、sent、completed、failed、blocked、device_offline</td><td>重试 / 暂停 / 取消 / 补打</td></tr>
-      </tbody>
-    </table>
+    <div class="form-grid">
+      <div class="form-field"><label for="printer-id">Printer ID</label><input id="printer-id" value="warehouse_a_01"></div>
+      <div class="form-field"><label for="printer-ip">IP</label><input id="printer-ip" value="192.168.1.50"></div>
+      <div class="form-field"><label for="printer-port">Port</label><input id="printer-port" value="9100"></div>
+      <div class="form-field"><label for="printer-site">Site / Warehouse</label><input id="printer-site" value="WH-A"></div>
+    </div>
+    <div class="action-row">
+      <button id="save-printer-btn" class="action-btn dark">Save Printer</button>
+      <button id="enqueue-print-btn" class="action-btn primary">Create Print Task From Current Label</button>
+      <button id="refresh-tasks-btn" class="action-btn">Refresh Queue</button>
+      <span id="print-action-status" class="chip">independent service</span>
+    </div>
+    <div class="two-col">
+      <div>
+        <h3>打印机配置</h3>
+        <div class="scroll-box">
+          <table class="module-table">
+            <thead><tr><th>Printer</th><th>Endpoint</th><th>Site</th><th>Status</th></tr></thead>
+            <tbody id="printer-list-body"><tr><td colspan="4">No printers saved.</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+      <div>
+        <h3>打印任务队列</h3>
+        <div class="scroll-box">
+          <table class="module-table">
+            <thead><tr><th>Task</th><th>Template</th><th>Printer</th><th>Status</th></tr></thead>
+            <tbody id="print-task-body"><tr><td colspan="4">No queued tasks.</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
   </div>
 </section>
 
@@ -586,14 +663,39 @@ pub const PLAYGROUND_HTML: &str = r##"<!DOCTYPE html>
       <div class="metric"><strong id="metric-render-count">0</strong><span>Render Count</span></div>
     </div>
     <div id="monitor-alerts" class="alert-strip" style="display:none"></div>
-    <table class="module-table">
-      <thead><tr><th>日志类型</th><th>筛选条件</th><th>定位动作</th></tr></thead>
-      <tbody>
-        <tr><td>API 请求日志</td><td>接口、调用方、状态码、request_id、时间</td><td>查看请求与错误码</td></tr>
-        <tr><td>渲染日志</td><td>模板、输出类型、DPMM、耗时、错误</td><td>打开输出或错误详情</td></tr>
-        <tr><td>打印任务日志</td><td>打印机、路由、状态、重试次数、通道</td><td>进入任务详情并恢复</td></tr>
-      </tbody>
-    </table>
+    <div class="action-row">
+      <button id="refresh-logs-btn" class="action-btn dark">Refresh Logs</button>
+      <span class="chip ok">logs run independently</span>
+    </div>
+    <div class="dashboard-grid">
+      <div>
+        <h3>API 请求日志</h3>
+        <div class="scroll-box">
+          <table class="module-table">
+            <thead><tr><th>Request</th><th>Endpoint</th><th>Status</th></tr></thead>
+            <tbody id="api-log-body"><tr><td colspan="3">No API logs.</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+      <div>
+        <h3>渲染日志</h3>
+        <div class="scroll-box">
+          <table class="module-table">
+            <thead><tr><th>Request</th><th>Template</th><th>Output</th></tr></thead>
+            <tbody id="render-log-body"><tr><td colspan="3">No render logs.</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+      <div>
+        <h3>打印任务日志</h3>
+        <div class="scroll-box">
+          <table class="module-table">
+            <thead><tr><th>Task</th><th>Printer</th><th>Status</th></tr></thead>
+            <tbody id="monitor-print-body"><tr><td colspan="3">No print logs.</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
   </div>
 </section>
 </main>
@@ -622,6 +724,346 @@ pub const PLAYGROUND_HTML: &str = r##"<!DOCTYPE html>
   var statusTime = document.getElementById("status-time");
 
   var pngBlobUrl = null;
+  var currentTemplate = { id: "", name: "", content: "" };
+  var currentFields = [];
+
+  function escapeHtml(value) {
+    return String(value == null ? "" : value)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
+  }
+
+  function slugify(value) {
+    return String(value || "template")
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "_")
+      .replace(/^_+|_+$/g, "")
+      .slice(0, 54) || "template";
+  }
+
+  function readStore(key, fallback) {
+    try {
+      var raw = localStorage.getItem(key);
+      return raw ? JSON.parse(raw) : fallback;
+    } catch (_) {
+      return fallback;
+    }
+  }
+
+  function writeStore(key, value) {
+    localStorage.setItem(key, JSON.stringify(value));
+  }
+
+  function updateTemplateContext() {
+    var name = currentTemplate.name || "No template imported";
+    var id = currentTemplate.id || "not saved";
+    setText("current-template-name", name);
+    setText("current-template-id", id);
+    setText("api-template-name", name);
+    setText("current-template-meta", currentTemplate.id
+      ? "Template is saved and available for data mapping, API tests, and print tasks."
+      : "Open a ZPL file in Label 制作 to start configuration.");
+  }
+
+  function setStatus(id, text, className) {
+    var node = document.getElementById(id);
+    if (!node) return;
+    node.textContent = text;
+    node.className = className || "chip";
+  }
+
+  function importTemplate(name, content) {
+    var params = getParams();
+    var id = "tpl_" + slugify(name);
+    return fetch("/api/v1/templates/import", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        id: id,
+        name: name,
+        content: content,
+        width_mm: params.w_mm,
+        height_mm: params.h_mm,
+        dpmm: params.dpmm
+      })
+    })
+    .then(function (res) {
+      if (!res.ok) return res.text().then(function (txt) { throw new Error(txt || res.status); });
+      return res.json();
+    })
+    .then(function (body) {
+      currentTemplate = { id: body.id || id, name: name, content: content };
+      updateTemplateContext();
+      extractFields();
+      buildApiRequest("pdf_preview");
+      refreshDashboard();
+      refreshLogs();
+      return currentTemplate;
+    });
+  }
+
+  function ensureTemplateSaved() {
+    var content = input.value.trim();
+    if (!content) return Promise.reject(new Error("ZPL content is empty."));
+    if (currentTemplate.id && currentTemplate.content === content) {
+      return Promise.resolve(currentTemplate);
+    }
+    var fallbackName = currentTemplate.name || "Working ZPL Template";
+    return importTemplate(fallbackName, content);
+  }
+
+  function fieldName(value, index) {
+    var cleaned = String(value || "")
+      .replace(/\{\{|\}\}/g, "")
+      .replace(/[^a-zA-Z0-9]+/g, "_")
+      .replace(/^_+|_+$/g, "")
+      .toLowerCase();
+    if (!cleaned || cleaned.length > 28) cleaned = "field_" + (index + 1);
+    return cleaned;
+  }
+
+  function extractFields() {
+    var zpl = input.value;
+    var found = [];
+    var seen = {};
+    var re = /\^FD([\s\S]*?)\^FS/g;
+    var match;
+    while ((match = re.exec(zpl)) && found.length < 80) {
+      var value = match[1].trim();
+      if (!value || seen[value]) continue;
+      seen[value] = true;
+      found.push({
+        label: "field_" + (found.length + 1),
+        value: value,
+        source: value.indexOf("{{") >= 0 ? "api_field" : "fixed",
+        apiName: fieldName(value, found.length)
+      });
+    }
+    currentFields = found;
+    renderFieldRows();
+    return found;
+  }
+
+  function renderFieldRows() {
+    var body = document.getElementById("field-map-body");
+    if (!body) return;
+    if (!currentFields.length) {
+      body.innerHTML = '<tr><td colspan="4">No extracted fields yet.</td></tr>';
+      return;
+    }
+    body.innerHTML = currentFields.map(function (field, index) {
+      return '<tr>' +
+        '<td>' + escapeHtml(field.label) + '</td>' +
+        '<td>' + escapeHtml(field.value.slice(0, 42)) + '</td>' +
+        '<td><select class="field-source" data-index="' + index + '">' +
+          ["manual", "api_field", "fixed", "ignored"].map(function (source) {
+            return '<option value="' + source + '"' + (field.source === source ? " selected" : "") + '>' + source + '</option>';
+          }).join("") +
+        '</select></td>' +
+        '<td><input class="field-api-name" data-index="' + index + '" value="' + escapeHtml(field.apiName) + '"></td>' +
+      '</tr>';
+    }).join("");
+  }
+
+  function collectFieldMappings() {
+    currentFields.forEach(function (field, index) {
+      var source = document.querySelector('.field-source[data-index="' + index + '"]');
+      var apiName = document.querySelector('.field-api-name[data-index="' + index + '"]');
+      if (source) field.source = source.value;
+      if (apiName) field.apiName = apiName.value.trim() || field.apiName;
+    });
+    return currentFields;
+  }
+
+  function saveDataConfig() {
+    collectFieldMappings();
+    var configs = readStore("label_platform_data_configs", []);
+    var cfg = {
+      id: "cfg_" + Date.now(),
+      template_id: currentTemplate.id,
+      template_name: currentTemplate.name,
+      name: document.getElementById("config-name").value || "Default mapping",
+      customer: document.getElementById("config-customer").value,
+      warehouse: document.getElementById("config-warehouse").value,
+      process: document.getElementById("config-process").value,
+      fields: currentFields,
+      status: "active"
+    };
+    configs.unshift(cfg);
+    writeStore("label_platform_data_configs", configs.slice(0, 20));
+    renderConfigList();
+    buildApiRequest("pdf_preview");
+    setStatus("config-status", "saved", "chip ok");
+  }
+
+  function renderConfigList() {
+    var body = document.getElementById("config-list-body");
+    if (!body) return;
+    var configs = readStore("label_platform_data_configs", []);
+    if (!configs.length) {
+      body.innerHTML = '<tr><td colspan="4">No saved configs.</td></tr>';
+      return;
+    }
+    body.innerHTML = configs.map(function (cfg) {
+      var scope = [cfg.customer, cfg.warehouse, cfg.process].filter(Boolean).join(" / ") || "general";
+      return '<tr><td>' + escapeHtml(cfg.name) + '</td><td>' + escapeHtml(scope) + '</td><td>' + cfg.fields.length + '</td><td><span class="chip ok">' + cfg.status + '</span></td></tr>';
+    }).join("");
+  }
+
+  function dataFromMappings() {
+    var data = {};
+    collectFieldMappings().forEach(function (field) {
+      if (field.source === "api_field") data[field.apiName] = field.value;
+    });
+    return data;
+  }
+
+  function buildApiRequest(mode) {
+    mode = mode || "pdf_preview";
+    var body = {
+      template_id: currentTemplate.id,
+      delivery_mode: mode,
+      data: dataFromMappings(),
+      manual_values: {}
+    };
+    if (mode === "device_print") {
+      body.printer_id = document.getElementById("printer-id").value || "warehouse_a_01";
+      body.copies = 1;
+    }
+    var node = document.getElementById("api-request-json");
+    if (node) node.value = JSON.stringify(body, null, 2);
+    setText("api-mode-chip", mode);
+    return body;
+  }
+
+  function postApiRequest(mode) {
+    ensureTemplateSaved()
+      .then(function () {
+        var body = buildApiRequest(mode);
+        var responseBox = document.getElementById("api-response-box");
+        var outputLink = document.getElementById("api-output-link");
+        if (responseBox) responseBox.textContent = "Posting...";
+        if (outputLink) outputLink.style.display = "none";
+        return fetch("/api/v1/labels/print", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body)
+        });
+      })
+      .then(function (res) { return res.json().then(function (body) { return { status: res.status, body: body }; }); })
+      .then(function (result) {
+        document.getElementById("api-response-box").textContent = JSON.stringify(result.body, null, 2);
+        if (result.body.output_url) {
+          var outputLink = document.getElementById("api-output-link");
+          outputLink.href = result.body.output_url;
+          outputLink.style.display = "inline-flex";
+        }
+        refreshDashboard();
+        refreshTasks();
+        refreshLogs();
+      })
+      .catch(function (err) {
+        document.getElementById("api-response-box").textContent = "Error: " + err.message;
+      });
+  }
+
+  function renderPrinters() {
+    var body = document.getElementById("printer-list-body");
+    if (!body) return;
+    var printers = readStore("label_platform_printers", []);
+    if (!printers.length) {
+      body.innerHTML = '<tr><td colspan="4">No printers saved.</td></tr>';
+      return;
+    }
+    body.innerHTML = printers.map(function (printer) {
+      return '<tr><td>' + escapeHtml(printer.id) + '</td><td>' + escapeHtml(printer.ip + ":" + printer.port) + '</td><td>' + escapeHtml(printer.site) + '</td><td><span class="chip ok">ready</span></td></tr>';
+    }).join("");
+  }
+
+  function savePrinter() {
+    var printers = readStore("label_platform_printers", []);
+    var printer = {
+      id: document.getElementById("printer-id").value || "warehouse_a_01",
+      ip: document.getElementById("printer-ip").value || "192.168.1.50",
+      port: document.getElementById("printer-port").value || "9100",
+      site: document.getElementById("printer-site").value || "WH-A"
+    };
+    printers = printers.filter(function (item) { return item.id !== printer.id; });
+    printers.unshift(printer);
+    writeStore("label_platform_printers", printers);
+    renderPrinters();
+    setStatus("print-action-status", "printer saved", "chip ok");
+  }
+
+  function enqueuePrintTask() {
+    savePrinter();
+    setStatus("print-action-status", "enqueueing", "chip warn");
+    ensureTemplateSaved()
+      .then(function () {
+        return fetch("/api/v1/labels/print", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(buildApiRequest("device_print"))
+        });
+      })
+      .then(function (res) { return res.json(); })
+      .then(function (body) {
+        setStatus("print-action-status", body.print_task_id ? "queued " + body.print_task_id : "submitted", "chip ok");
+        refreshDashboard();
+        refreshTasks();
+        refreshLogs();
+      })
+      .catch(function (err) {
+        setStatus("print-action-status", err.message, "chip bad");
+      });
+  }
+
+  function refreshTasks() {
+    fetch("/api/v1/logs/print-tasks")
+      .then(function (res) { return res.ok ? res.json() : { items: [] }; })
+      .then(function (body) {
+        var rows = (body.items || []).slice().reverse();
+        var printBody = document.getElementById("print-task-body");
+        var monitorBody = document.getElementById("monitor-print-body");
+        var html = rows.length ? rows.map(function (task) {
+          return '<tr><td>' + escapeHtml(task.id) + '</td><td>' + escapeHtml(task.template_id) + '</td><td>' + escapeHtml(task.printer_id || "") + '</td><td><span class="chip warn">' + escapeHtml(task.status) + '</span></td></tr>';
+        }).join("") : '<tr><td colspan="4">No queued tasks.</td></tr>';
+        if (printBody) printBody.innerHTML = html;
+        if (monitorBody) {
+          monitorBody.innerHTML = rows.length ? rows.map(function (task) {
+            return '<tr><td>' + escapeHtml(task.id) + '</td><td>' + escapeHtml(task.printer_id || "") + '</td><td>' + escapeHtml(task.status) + '</td></tr>';
+          }).join("") : '<tr><td colspan="3">No print logs.</td></tr>';
+        }
+      })
+      .catch(function () {});
+  }
+
+  function refreshLogs() {
+    refreshTasks();
+    fetch("/api/v1/logs/api-requests")
+      .then(function (res) { return res.ok ? res.json() : { items: [] }; })
+      .then(function (body) {
+        var rows = (body.items || []).slice().reverse();
+        var target = document.getElementById("api-log-body");
+        if (target) target.innerHTML = rows.length ? rows.map(function (log) {
+          return '<tr><td>' + escapeHtml(log.request_id) + '</td><td>' + escapeHtml(log.endpoint) + '</td><td>' + escapeHtml(log.status_code + " " + log.status) + '</td></tr>';
+        }).join("") : '<tr><td colspan="3">No API logs.</td></tr>';
+      })
+      .catch(function () {});
+
+    fetch("/api/v1/logs/renders")
+      .then(function (res) { return res.ok ? res.json() : { items: [] }; })
+      .then(function (body) {
+        var rows = (body.items || []).slice().reverse();
+        var target = document.getElementById("render-log-body");
+        if (target) target.innerHTML = rows.length ? rows.map(function (log) {
+          return '<tr><td>' + escapeHtml(log.request_id) + '</td><td>' + escapeHtml(log.template_id) + '</td><td>' + escapeHtml(log.output_type) + '</td></tr>';
+        }).join("") : '<tr><td colspan="3">No render logs.</td></tr>';
+      })
+      .catch(function () {});
+  }
 
   function setupModules() {
     var tabs = Array.prototype.slice.call(document.querySelectorAll(".module-tab"));
@@ -838,12 +1280,64 @@ pub const PLAYGROUND_HTML: &str = r##"<!DOCTYPE html>
     reader.onload = function (e) {
       input.value = e.target.result;
       input.focus();
+      importTemplate(file.name.replace(/\.(zpl|epl)$/i, ""), input.value)
+        .then(function () {
+          setStatus("config-status", "template imported", "chip ok");
+        })
+        .catch(function (err) {
+          setStatus("config-status", "import failed", "chip bad");
+          showError("Template import failed: " + err.message);
+        });
     };
     reader.readAsText(file);
     this.value = "";
   });
 
   btn.addEventListener("click", render);
+
+  document.getElementById("extract-fields-btn").addEventListener("click", function () {
+    extractFields();
+    setStatus("config-status", currentFields.length + " fields extracted", "chip ok");
+  });
+
+  document.getElementById("save-config-btn").addEventListener("click", function () {
+    ensureTemplateSaved()
+      .then(saveDataConfig)
+      .catch(function (err) { setStatus("config-status", err.message, "chip bad"); });
+  });
+
+  document.getElementById("load-config-btn").addEventListener("click", renderConfigList);
+
+  document.getElementById("build-api-request-btn").addEventListener("click", function () {
+    ensureTemplateSaved()
+      .then(function () { buildApiRequest("pdf_preview"); })
+      .catch(function (err) { document.getElementById("api-response-box").textContent = "Error: " + err.message; });
+  });
+
+  document.getElementById("api-pdf-btn").addEventListener("click", function () {
+    postApiRequest("pdf_preview");
+  });
+
+  document.getElementById("api-print-btn").addEventListener("click", function () {
+    postApiRequest("device_print");
+  });
+
+  document.getElementById("copy-curl-btn").addEventListener("click", function () {
+    var body = document.getElementById("api-request-json").value;
+    var curl = "curl -X POST http://127.0.0.1:8081/api/v1/labels/print -H 'Content-Type: application/json' -d '" + body.replace(/'/g, "'\\''") + "'";
+    document.getElementById("api-response-box").textContent = curl;
+  });
+
+  document.getElementById("save-printer-btn").addEventListener("click", savePrinter);
+  document.getElementById("enqueue-print-btn").addEventListener("click", enqueuePrintTask);
+  document.getElementById("refresh-tasks-btn").addEventListener("click", function () {
+    refreshDashboard();
+    refreshTasks();
+  });
+  document.getElementById("refresh-logs-btn").addEventListener("click", function () {
+    refreshDashboard();
+    refreshLogs();
+  });
 
   input.addEventListener("keydown", function (e) {
     if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
@@ -853,7 +1347,17 @@ pub const PLAYGROUND_HTML: &str = r##"<!DOCTYPE html>
   });
 
   setupModules();
+  updateTemplateContext();
+  extractFields();
+  renderConfigList();
+  renderPrinters();
+  buildApiRequest("pdf_preview");
   refreshDashboard();
+  refreshLogs();
+  setInterval(function () {
+    refreshDashboard();
+    refreshTasks();
+  }, 10000);
 })();
 </script>
 </body>
