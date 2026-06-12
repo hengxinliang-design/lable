@@ -175,12 +175,23 @@ pub const PLAYGROUND_HTML: &str = r##"<!DOCTYPE html>
   .data-preview-card { position: sticky; top: 0; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px; }
   .data-preview-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
   .data-preview-head h3 { margin: 0; }
+  .preview-tools { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+  .preview-tool-btn {
+    border: 1px solid var(--border); background: #fff; color: var(--deep-teal);
+    border-radius: 6px; min-width: 34px; height: 30px; padding: 0 9px;
+    font: 12px/1 var(--font-ui); font-weight: 800; cursor: pointer;
+  }
+  .preview-tool-btn.active { background: var(--deep-teal); color: #fff; border-color: var(--deep-teal); }
+  .preview-tool-label { color: var(--text-dim); font-size: 12px; min-width: 46px; text-align: center; }
   #data-preview-frame {
     min-height: 460px; max-height: 65vh; overflow: auto; display: flex; align-items: flex-start;
     justify-content: center; background: var(--shell); border: 1px solid var(--border);
     border-radius: var(--radius); padding: 12px;
   }
-  #data-preview-img { display: none; max-width: 100%; background: #fff; border: 1px solid var(--border); box-shadow: 0 10px 26px rgba(1,102,106,0.16); }
+  #data-preview-img {
+    display: none; max-width: 100%; background: #fff; border: 1px solid var(--border);
+    box-shadow: 0 10px 26px rgba(1,102,106,0.16); transform-origin: top center;
+  }
   #data-preview-img.visible { display: block; }
   #data-preview-empty { margin: auto; color: var(--text-dim); font-size: 12px; text-align: center; }
 
@@ -580,6 +591,16 @@ pub const PLAYGROUND_HTML: &str = r##"<!DOCTYPE html>
             <h3>Label 预览</h3>
             <span id="data-preview-status" class="chip">waiting</span>
           </div>
+          <div class="preview-tools" aria-label="Label preview tools">
+            <button id="preview-fit-btn" class="preview-tool-btn active">Fit</button>
+            <button id="preview-zoom-out-btn" class="preview-tool-btn">-</button>
+            <span id="preview-zoom-label" class="preview-tool-label">100%</span>
+            <button id="preview-zoom-in-btn" class="preview-tool-btn">+</button>
+            <button id="preview-reset-btn" class="preview-tool-btn">Reset</button>
+            <button id="preview-rotate-left-btn" class="preview-tool-btn">↶</button>
+            <button id="preview-rotate-right-btn" class="preview-tool-btn">↷</button>
+            <span id="preview-rotation-label" class="preview-tool-label">0°</span>
+          </div>
           <div id="data-preview-frame">
             <div id="data-preview-empty">Edit field values, then preview the generated label.</div>
             <img id="data-preview-img" alt="Data mapped label preview">
@@ -771,6 +792,10 @@ pub const PLAYGROUND_HTML: &str = r##"<!DOCTYPE html>
   var pngBlobUrl = null;
   var currentTemplate = { id: "", name: "", content: "" };
   var currentFields = [];
+  var dataPreviewBlobUrl = null;
+  var previewScale = 1;
+  var previewFit = true;
+  var previewRotation = 0;
 
   function escapeHtml(value) {
     return String(value == null ? "" : value)
@@ -817,6 +842,51 @@ pub const PLAYGROUND_HTML: &str = r##"<!DOCTYPE html>
     if (!node) return;
     node.textContent = text;
     node.className = className || "chip";
+  }
+
+  function normalizeRotation(value) {
+    return ((value % 360) + 360) % 360;
+  }
+
+  function applyPreviewTransform() {
+    var img = document.getElementById("data-preview-img");
+    if (!img) return;
+    var fitBtn = document.getElementById("preview-fit-btn");
+    if (previewFit) {
+      img.style.width = "";
+      img.style.maxWidth = "100%";
+      img.style.transform = "rotate(" + previewRotation + "deg)";
+    } else {
+      img.style.maxWidth = "none";
+      img.style.width = Math.max(80, Math.round((img.naturalWidth || 600) * previewScale)) + "px";
+      img.style.transform = "rotate(" + previewRotation + "deg)";
+    }
+    if (fitBtn) fitBtn.classList.toggle("active", previewFit);
+    setText("preview-zoom-label", previewFit ? "Fit" : Math.round(previewScale * 100) + "%");
+    setText("preview-rotation-label", previewRotation + "°");
+  }
+
+  function setPreviewFit(enabled) {
+    previewFit = enabled;
+    applyPreviewTransform();
+  }
+
+  function zoomPreview(delta) {
+    previewFit = false;
+    previewScale = Math.max(0.25, Math.min(4, +(previewScale + delta).toFixed(2)));
+    applyPreviewTransform();
+  }
+
+  function rotatePreview(delta) {
+    previewRotation = normalizeRotation(previewRotation + delta);
+    applyPreviewTransform();
+  }
+
+  function resetPreviewView() {
+    previewScale = 1;
+    previewFit = true;
+    previewRotation = 0;
+    applyPreviewTransform();
   }
 
   function importTemplate(name, content) {
@@ -1039,10 +1109,14 @@ pub const PLAYGROUND_HTML: &str = r##"<!DOCTYPE html>
       return res.blob();
     })
     .then(function (blob) {
+      if (dataPreviewBlobUrl) URL.revokeObjectURL(dataPreviewBlobUrl);
       var url = URL.createObjectURL(blob);
+      dataPreviewBlobUrl = url;
       img.src = url;
+      img.onload = applyPreviewTransform;
       img.classList.add("visible");
       empty.style.display = "none";
+      applyPreviewTransform();
       setStatus("data-preview-status", "preview ready", "chip ok");
     })
     .catch(function (err) {
@@ -1446,6 +1520,22 @@ pub const PLAYGROUND_HTML: &str = r##"<!DOCTYPE html>
   });
 
   document.getElementById("preview-fields-btn").addEventListener("click", previewFieldMappedLabel);
+  document.getElementById("preview-fit-btn").addEventListener("click", function () {
+    setPreviewFit(true);
+  });
+  document.getElementById("preview-zoom-out-btn").addEventListener("click", function () {
+    zoomPreview(-0.1);
+  });
+  document.getElementById("preview-zoom-in-btn").addEventListener("click", function () {
+    zoomPreview(0.1);
+  });
+  document.getElementById("preview-reset-btn").addEventListener("click", resetPreviewView);
+  document.getElementById("preview-rotate-left-btn").addEventListener("click", function () {
+    rotatePreview(-90);
+  });
+  document.getElementById("preview-rotate-right-btn").addEventListener("click", function () {
+    rotatePreview(90);
+  });
 
   document.getElementById("save-config-btn").addEventListener("click", function () {
     ensureTemplateSaved()
