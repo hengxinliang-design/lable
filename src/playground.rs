@@ -1011,6 +1011,14 @@ pub const PLAYGROUND_HTML: &str = r##"<!DOCTYPE html>
     return importTemplate(fallbackName, content);
   }
 
+  function ensureTemplateIdForConfig() {
+    if (currentTemplate.id) return Promise.resolve(currentTemplate);
+    var content = input.value.trim();
+    if (!content) return Promise.reject(new Error("ZPL content is empty."));
+    var fallbackName = currentTemplate.name || "Working ZPL Template";
+    return importTemplate(fallbackName, content);
+  }
+
   function fieldName(value, index) {
     var cleaned = String(value || "")
       .replace(/\{\{|\}\}/g, "")
@@ -1164,7 +1172,9 @@ pub const PLAYGROUND_HTML: &str = r##"<!DOCTYPE html>
   function saveDataConfig() {
     collectFieldMappings();
     var configs = readStore("label_platform_data_configs", []);
-    var activeFields = currentFields.filter(function (field) { return !field.deleted; });
+    var activeFields = currentFields
+      .filter(function (field) { return !field.deleted; })
+      .map(function (field) { return JSON.parse(JSON.stringify(field)); });
     var cfg = {
       id: "cfg_" + Date.now(),
       template_id: currentTemplate.id,
@@ -1840,7 +1850,7 @@ pub const PLAYGROUND_HTML: &str = r##"<!DOCTYPE html>
   });
 
   document.getElementById("save-config-btn").addEventListener("click", function () {
-    ensureTemplateSaved()
+    ensureTemplateIdForConfig()
       .then(function () {
         saveDataConfig();
         previewFieldMappedLabel();
@@ -2003,5 +2013,12 @@ mod tests {
         assert!(PLAYGROUND_HTML.contains("printer-template-binding"));
         assert!(PLAYGROUND_HTML.contains("printer-route-process"));
         assert!(PLAYGROUND_HTML.contains("labelDataSummary(task.label_data)"));
+    }
+
+    #[test]
+    fn saving_data_config_does_not_reextract_fields() {
+        assert!(PLAYGROUND_HTML.contains("function ensureTemplateIdForConfig()"));
+        assert!(PLAYGROUND_HTML.contains("ensureTemplateIdForConfig()"));
+        assert!(PLAYGROUND_HTML.contains("JSON.parse(JSON.stringify(field))"));
     }
 }
