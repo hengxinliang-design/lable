@@ -130,6 +130,8 @@ pub struct RenderRequest {
     pub response_mode: Option<String>,
     pub size: Option<RenderSize>,
     #[serde(default)]
+    pub field_schema: Value,
+    #[serde(default)]
     pub data: Value,
     #[serde(default)]
     pub manual_values: Value,
@@ -374,6 +376,7 @@ async fn print_label_handler(
             output: Some("pdf".to_string()),
             response_mode: Some("url".to_string()),
             size: None,
+            field_schema: req.field_schema,
             data: req.data,
             manual_values: req.manual_values,
         };
@@ -660,7 +663,16 @@ fn render_from_request(
         ));
     }
 
-    let content = merge_values(&template.content, &req.data, &req.manual_values);
+    let content = merge_values(
+        &merge_schema_values(
+            &template.content,
+            &req.field_schema,
+            &req.data,
+            &req.manual_values,
+        ),
+        &req.data,
+        &req.manual_values,
+    );
     if output == "zpl" {
         return Ok(OutputArtifact {
             content_type: "text/plain; charset=utf-8",
@@ -775,6 +787,46 @@ fn merge_values(content: &str, data: &Value, manual_values: &Value) -> String {
     merged
 }
 
+fn merge_schema_values(
+    content: &str,
+    field_schema: &Value,
+    data: &Value,
+    manual_values: &Value,
+) -> String {
+    let mut merged = content.to_string();
+    let Value::Array(fields) = field_schema else {
+        return merged;
+    };
+
+    for field in fields {
+        let Some(name) = field.get("name").and_then(Value::as_str) else {
+            continue;
+        };
+        let Some(sample_value) = field.get("sample_value").and_then(Value::as_str) else {
+            continue;
+        };
+        if sample_value.is_empty() {
+            continue;
+        }
+        let replacement = data
+            .get(name)
+            .or_else(|| manual_values.get(name))
+            .map(json_value_to_label_value);
+        if let Some(replacement) = replacement {
+            merged = merged.replace(sample_value, &replacement);
+        }
+    }
+
+    merged
+}
+
+fn json_value_to_label_value(value: &Value) -> String {
+    value
+        .as_str()
+        .map(ToString::to_string)
+        .unwrap_or_else(|| value.to_string())
+}
+
 fn api_error(
     request_id: &str,
     status: StatusCode,
@@ -867,6 +919,24 @@ mod tests {
     }
 
     #[test]
+    fn merge_schema_values_replaces_sample_values_with_api_data() {
+        let out = merge_schema_values(
+            "^FDP06512515AA^FS^FDQ380^FS",
+            &json!([
+                { "name": "barcode_b3_2", "sample_value": "P06512515AA" },
+                { "name": "barcode_b3_6", "sample_value": "Q380" }
+            ]),
+            &json!({
+                "barcode_b3_2": "P99999999AA",
+                "barcode_b3_6": "Q888"
+            }),
+            &json!({}),
+        );
+
+        assert_eq!(out, "^FDP99999999AA^FS^FDQ888^FS");
+    }
+
+    #[test]
     fn seeded_template_renders_pdf() {
         let state = PlatformState::new();
         let req = RenderRequest {
@@ -874,6 +944,7 @@ mod tests {
             output: Some("pdf".to_string()),
             response_mode: Some("url".to_string()),
             size: None,
+            field_schema: json!([]),
             data: json!({}),
             manual_values: json!({}),
         };
@@ -890,6 +961,7 @@ mod tests {
             output: Some("docx".to_string()),
             response_mode: Some("url".to_string()),
             size: None,
+            field_schema: json!([]),
             data: json!({}),
             manual_values: json!({}),
         };
