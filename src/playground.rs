@@ -1322,6 +1322,7 @@ pub const PLAYGROUND_HTML: &str = r##"<!DOCTYPE html>
 
   function buildApiRequest(mode) {
     mode = mode || "pdf_preview";
+    collectFieldMappings();
     var selectedPrinter = getSelectedPrinter();
     var body = {
       template_id: currentTemplate.id,
@@ -1342,7 +1343,7 @@ pub const PLAYGROUND_HTML: &str = r##"<!DOCTYPE html>
   }
 
   function postApiRequest(mode) {
-    ensureTemplateSaved()
+    ensureTemplateIdForConfig()
       .then(function () {
         var body = buildApiRequest(mode);
         var responseBox = document.getElementById("api-response-box");
@@ -1508,7 +1509,7 @@ pub const PLAYGROUND_HTML: &str = r##"<!DOCTYPE html>
       setStatus("print-action-status", "printer " + printer.status + " - queued for attention", "chip warn");
     }
     setStatus("print-action-status", "enqueueing", "chip warn");
-    ensureTemplateSaved()
+    ensureTemplateIdForConfig()
       .then(function () {
         return fetch("/api/v1/labels/print", {
           method: "POST",
@@ -1861,7 +1862,7 @@ pub const PLAYGROUND_HTML: &str = r##"<!DOCTYPE html>
   document.getElementById("load-config-btn").addEventListener("click", renderConfigList);
 
   document.getElementById("build-api-request-btn").addEventListener("click", function () {
-    ensureTemplateSaved()
+    ensureTemplateIdForConfig()
       .then(function () { buildApiRequest("pdf_preview"); })
       .catch(function (err) { document.getElementById("api-response-box").textContent = "Error: " + err.message; });
   });
@@ -2020,5 +2021,14 @@ mod tests {
         assert!(PLAYGROUND_HTML.contains("function ensureTemplateIdForConfig()"));
         assert!(PLAYGROUND_HTML.contains("ensureTemplateIdForConfig()"));
         assert!(PLAYGROUND_HTML.contains("JSON.parse(JSON.stringify(field))"));
+    }
+
+    #[test]
+    fn api_mapping_build_uses_current_field_form() {
+        assert!(PLAYGROUND_HTML.contains("function buildApiRequest(mode)"));
+        assert!(PLAYGROUND_HTML.contains("collectFieldMappings();\n    var selectedPrinter"));
+        assert!(PLAYGROUND_HTML.contains("document.getElementById(\"build-api-request-btn\").addEventListener(\"click\", function () {\n    ensureTemplateIdForConfig()"));
+        assert!(PLAYGROUND_HTML
+            .contains("function postApiRequest(mode) {\n    ensureTemplateIdForConfig()"));
     }
 }
