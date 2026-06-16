@@ -130,15 +130,18 @@ pub const PLAYGROUND_HTML: &str = r##"<!DOCTYPE html>
   .field-map-table th:nth-child(4), .field-map-table td:nth-child(4) { width: 140px; }
   .field-map-table th:nth-child(5), .field-map-table td:nth-child(5) { width: 260px; }
   .field-map-table th:nth-child(6), .field-map-table td:nth-child(6) { width: 96px; }
+  .field-map-table td { vertical-align: top; padding-top: 10px; padding-bottom: 10px; }
+  .field-map-table td:first-child { padding-top: 18px; }
   .field-source, .field-api-name, .field-value-input, .field-element-kind {
     width: 100%; min-width: 0; border: 1px solid var(--border); border-radius: 5px;
     background: #fff; color: var(--text); font: 12px/1.35 var(--font-ui);
     padding: 7px 8px; outline: none;
   }
+  .field-source, .field-api-name, .field-element-kind, .row-action { height: 38px; }
   .field-api-name { font-family: var(--font-mono); }
-  .field-value-input { min-height: 34px; resize: vertical; overflow: hidden; }
+  .field-value-input { height: 58px; min-height: 58px; resize: vertical; overflow: hidden; }
   .field-source:focus, .field-api-name:focus, .field-value-input:focus, .field-element-kind:focus { border-color: var(--lagoon); box-shadow: 0 0 0 2px rgba(21,156,186,0.12); }
-  .field-kind-note { display: block; margin-top: 5px; color: var(--text-dim); font-size: 11px; line-height: 1.25; }
+  .field-kind-note { display: block; min-height: 30px; margin-top: 6px; color: var(--text-dim); font-size: 11px; line-height: 1.25; }
   .field-kind-note.barcode { color: var(--deep-teal); font-weight: 700; }
   .row-action {
     width: 100%; border: 1px solid var(--border); border-radius: 5px; background: #fff;
@@ -1856,5 +1859,15 @@ mod tests {
         assert!(PLAYGROUND_HTML.contains("300\\s*dpi"));
         assert!(PLAYGROUND_HTML.contains("return 12"));
         assert!(PLAYGROUND_HTML.contains("resolveTemplateParams(getParams(), zpl"));
+    }
+
+    #[test]
+    fn workbench_field_table_controls_are_aligned() {
+        assert!(PLAYGROUND_HTML.contains(".field-map-table td { vertical-align: top"));
+        assert!(PLAYGROUND_HTML.contains(".field-value-input { height: 58px"));
+        assert!(PLAYGROUND_HTML.contains(
+            ".field-source, .field-api-name, .field-element-kind, .row-action { height: 38px"
+        ));
+        assert!(PLAYGROUND_HTML.contains(".field-kind-note { display: block; min-height: 30px"));
     }
 }
