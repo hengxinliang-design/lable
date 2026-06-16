@@ -700,13 +700,23 @@ pub const PLAYGROUND_HTML: &str = r##"<!DOCTYPE html>
       <div class="form-field"><label for="printer-id">Printer ID</label><input id="printer-id" value="warehouse_a_01"></div>
       <div class="form-field"><label for="printer-ip">IP</label><input id="printer-ip" value="192.168.1.50"></div>
       <div class="form-field"><label for="printer-port">Port</label><input id="printer-port" value="9100"></div>
+      <div class="form-field"><label for="printer-dpi">DPI</label><select id="printer-dpi"><option value="203">203</option><option value="300" selected>300</option><option value="600">600</option></select></div>
+      <div class="form-field"><label for="printer-paper">Paper Size</label><input id="printer-paper" value="4 x 6 in"></div>
+      <div class="form-field"><label for="printer-model">Model</label><input id="printer-model" value="Zebra ZT411"></div>
+      <div class="form-field"><label for="printer-status">Status</label><select id="printer-status"><option value="ready">Ready</option><option value="busy">Busy</option><option value="offline">Offline</option><option value="maintenance">Maintenance</option></select></div>
       <div class="form-field"><label for="print-server-endpoint">Print Server Endpoint</label><input id="print-server-endpoint" value="print-server://warehouse-a"></div>
       <div class="form-field"><label for="server-printer-name">Server Printer Name</label><input id="server-printer-name" value="Zebra-WH-A-01"></div>
       <div class="form-field"><label for="printer-location">Location</label><input id="printer-location" value="Dock A / Pack Station 1"></div>
       <div class="form-field"><label for="printer-site">Site / Warehouse</label><input id="printer-site" value="WH-A"></div>
+      <div class="form-field"><label for="printer-template-binding">Template Binding</label><input id="printer-template-binding" placeholder="current template"></div>
+      <div class="form-field"><label for="printer-route-process">Business Route</label><input id="printer-route-process" placeholder="Inbound / Shipping"></div>
+      <div class="form-field"><label for="printer-route-priority">Route Priority</label><select id="printer-route-priority"><option value="primary">Primary</option><option value="backup">Backup</option><option value="overflow">Overflow</option></select></div>
+      <div class="form-field"><label for="printer-selected-id">Selected Printer</label><select id="printer-selected-id"></select></div>
     </div>
     <div class="action-row">
+      <button id="new-printer-btn" class="action-btn">New Printer</button>
       <button id="save-printer-btn" class="action-btn dark">Save Printer</button>
+      <button id="delete-printer-btn" class="action-btn">Delete Selected</button>
       <button id="enqueue-print-btn" class="action-btn primary">Create Print Task From Current Label</button>
       <button id="refresh-tasks-btn" class="action-btn">Refresh Queue</button>
       <span id="print-action-status" class="chip">independent service</span>
@@ -716,8 +726,8 @@ pub const PLAYGROUND_HTML: &str = r##"<!DOCTYPE html>
         <h3>打印机配置</h3>
         <div class="scroll-box">
           <table class="module-table">
-            <thead><tr><th>Printer</th><th>Mode</th><th>Endpoint</th><th>Status</th></tr></thead>
-            <tbody id="printer-list-body"><tr><td colspan="4">No printers saved.</td></tr></tbody>
+            <thead><tr><th>Printer</th><th>Connection</th><th>Binding / Route</th><th>Capability</th><th>Status</th><th>Action</th></tr></thead>
+            <tbody id="printer-list-body"><tr><td colspan="6">No printers saved.</td></tr></tbody>
           </table>
         </div>
       </div>
@@ -725,8 +735,8 @@ pub const PLAYGROUND_HTML: &str = r##"<!DOCTYPE html>
         <h3>打印任务队列</h3>
         <div class="scroll-box">
           <table class="module-table">
-            <thead><tr><th>Task</th><th>Template</th><th>Printer</th><th>Status</th></tr></thead>
-            <tbody id="print-task-body"><tr><td colspan="4">No queued tasks.</td></tr></tbody>
+            <thead><tr><th>Task</th><th>Template</th><th>Printer</th><th>Copies</th><th>Label Data</th><th>Status</th></tr></thead>
+            <tbody id="print-task-body"><tr><td colspan="6">No queued tasks.</td></tr></tbody>
           </table>
         </div>
       </div>
@@ -777,7 +787,7 @@ pub const PLAYGROUND_HTML: &str = r##"<!DOCTYPE html>
         <h3>打印任务日志</h3>
         <div class="scroll-box">
           <table class="module-table">
-            <thead><tr><th>Task</th><th>Printer</th><th>Status</th></tr></thead>
+            <thead><tr><th>Task / Template</th><th>Printer</th><th>Status / Label Data</th></tr></thead>
             <tbody id="monitor-print-body"><tr><td colspan="3">No print logs.</td></tr></tbody>
           </table>
         </div>
@@ -1302,6 +1312,7 @@ pub const PLAYGROUND_HTML: &str = r##"<!DOCTYPE html>
 
   function buildApiRequest(mode) {
     mode = mode || "pdf_preview";
+    var selectedPrinter = getSelectedPrinter();
     var body = {
       template_id: currentTemplate.id,
       delivery_mode: mode,
@@ -1310,8 +1321,8 @@ pub const PLAYGROUND_HTML: &str = r##"<!DOCTYPE html>
       manual_values: {}
     };
     if (mode === "device_print") {
-      body.printer_id = document.getElementById("printer-id").value || "warehouse_a_01";
-      body.connection_mode = document.getElementById("printer-connection").value || "print_server";
+      body.printer_id = selectedPrinter ? selectedPrinter.id : (document.getElementById("printer-id").value || "warehouse_a_01");
+      body.connection_mode = selectedPrinter ? selectedPrinter.connection_mode : (document.getElementById("printer-connection").value || "print_server");
       body.copies = 1;
     }
     var node = document.getElementById("api-request-json");
@@ -1355,23 +1366,92 @@ pub const PLAYGROUND_HTML: &str = r##"<!DOCTYPE html>
     var body = document.getElementById("printer-list-body");
     if (!body) return;
     var printers = readStore("label_platform_printers", []);
+    var selector = document.getElementById("printer-selected-id");
+    if (selector) {
+      var selected = selector.value;
+      selector.innerHTML = printers.length
+        ? printers.map(function (printer) {
+            return '<option value="' + escapeHtml(printer.id) + '"' + (printer.id === selected ? " selected" : "") + '>' + escapeHtml(printer.id + " - " + (printer.location || printer.site || printer.status)) + '</option>';
+          }).join("")
+        : '<option value="">No printers</option>';
+    }
     if (!printers.length) {
-      body.innerHTML = '<tr><td colspan="4">No printers saved.</td></tr>';
+      body.innerHTML = '<tr><td colspan="6">No printers saved.</td></tr>';
       return;
     }
     body.innerHTML = printers.map(function (printer) {
-      return '<tr><td>' + escapeHtml(printer.id) + '<br><span class="field-kind-note">' + escapeHtml(printer.location || printer.site) + '</span></td><td>' + escapeHtml(printer.connection_mode) + '</td><td>' + escapeHtml(printer.endpoint) + '</td><td><span class="chip ok">ready</span></td></tr>';
+      var statusClass = printer.status === "ready" ? "ok" : printer.status === "offline" ? "bad" : "warn";
+      var binding = printer.template_binding || "any template";
+      var route = [printer.site, printer.route_process, printer.route_priority].filter(Boolean).join(" / ") || "general route";
+      var capability = [printer.dpi ? printer.dpi + "dpi" : "", printer.paper_size, printer.model].filter(Boolean).join(" / ");
+      return '<tr>' +
+        '<td>' + escapeHtml(printer.id) + '<br><span class="field-kind-note">' + escapeHtml(printer.location || printer.site) + '</span></td>' +
+        '<td>' + escapeHtml(printer.connection_mode) + '<br><span class="field-kind-note">' + escapeHtml(printer.endpoint) + '</span></td>' +
+        '<td>' + escapeHtml(binding) + '<br><span class="field-kind-note">' + escapeHtml(route) + '</span></td>' +
+        '<td>' + escapeHtml(capability || "not set") + '</td>' +
+        '<td><span class="chip ' + statusClass + '">' + escapeHtml(printer.status || "ready") + '</span></td>' +
+        '<td><button class="row-action select-printer-btn" data-printer-id="' + escapeHtml(printer.id) + '">Edit</button></td>' +
+      '</tr>';
     }).join("");
+  }
+
+  function endpointForPrinter(connectionMode) {
+    return connectionMode === "print_server"
+      ? document.getElementById("print-server-endpoint").value + " / " + document.getElementById("server-printer-name").value
+      : connectionMode === "direct_ip"
+        ? document.getElementById("printer-ip").value + ":" + document.getElementById("printer-port").value
+        : connectionMode;
+  }
+
+  function getSelectedPrinter() {
+    var selectedId = document.getElementById("printer-selected-id").value || document.getElementById("printer-id").value;
+    var printers = readStore("label_platform_printers", []);
+    return printers.find(function (printer) { return printer.id === selectedId; }) || null;
+  }
+
+  function loadPrinterIntoForm(printer) {
+    if (!printer) return;
+    document.getElementById("printer-id").value = printer.id || "";
+    document.getElementById("printer-connection").value = printer.connection_mode || "print_server";
+    document.getElementById("printer-ip").value = printer.ip || "";
+    document.getElementById("printer-port").value = printer.port || "9100";
+    document.getElementById("printer-dpi").value = String(printer.dpi || "300");
+    document.getElementById("printer-paper").value = printer.paper_size || "4 x 6 in";
+    document.getElementById("printer-model").value = printer.model || "";
+    document.getElementById("printer-status").value = printer.status || "ready";
+    document.getElementById("print-server-endpoint").value = printer.print_server_endpoint || "";
+    document.getElementById("server-printer-name").value = printer.print_server_printer_name || "";
+    document.getElementById("printer-location").value = printer.location || "";
+    document.getElementById("printer-site").value = printer.site || "";
+    document.getElementById("printer-template-binding").value = printer.template_binding || "";
+    document.getElementById("printer-route-process").value = printer.route_process || "";
+    document.getElementById("printer-route-priority").value = printer.route_priority || "primary";
+    setStatus("print-action-status", "editing " + printer.id, "chip ok");
+  }
+
+  function clearPrinterForm() {
+    document.getElementById("printer-id").value = "printer_" + Date.now();
+    document.getElementById("printer-connection").value = "print_server";
+    document.getElementById("printer-ip").value = "";
+    document.getElementById("printer-port").value = "9100";
+    document.getElementById("printer-dpi").value = "300";
+    document.getElementById("printer-paper").value = "4 x 6 in";
+    document.getElementById("printer-model").value = "";
+    document.getElementById("printer-status").value = "ready";
+    document.getElementById("print-server-endpoint").value = "";
+    document.getElementById("server-printer-name").value = "";
+    document.getElementById("printer-location").value = "";
+    document.getElementById("printer-site").value = "";
+    document.getElementById("printer-template-binding").value = currentTemplate.id || "";
+    document.getElementById("printer-route-process").value = "";
+    document.getElementById("printer-route-priority").value = "primary";
+    setStatus("print-action-status", "new printer draft", "chip warn");
   }
 
   function savePrinter() {
     var printers = readStore("label_platform_printers", []);
     var connectionMode = document.getElementById("printer-connection").value || "print_server";
-    var endpoint = connectionMode === "print_server"
-      ? document.getElementById("print-server-endpoint").value + " / " + document.getElementById("server-printer-name").value
-      : connectionMode === "direct_ip"
-        ? document.getElementById("printer-ip").value + ":" + document.getElementById("printer-port").value
-        : connectionMode;
+    var endpoint = endpointForPrinter(connectionMode);
     var printer = {
       id: document.getElementById("printer-id").value || "warehouse_a_01",
       connection_mode: connectionMode,
@@ -1380,18 +1460,43 @@ pub const PLAYGROUND_HTML: &str = r##"<!DOCTYPE html>
       print_server_printer_name: document.getElementById("server-printer-name").value,
       ip: document.getElementById("printer-ip").value || "192.168.1.50",
       port: document.getElementById("printer-port").value || "9100",
+      dpi: document.getElementById("printer-dpi").value || "300",
+      paper_size: document.getElementById("printer-paper").value || "4 x 6 in",
+      model: document.getElementById("printer-model").value || "",
+      status: document.getElementById("printer-status").value || "ready",
       site: document.getElementById("printer-site").value || "WH-A",
-      location: document.getElementById("printer-location").value || ""
+      location: document.getElementById("printer-location").value || "",
+      template_binding: document.getElementById("printer-template-binding").value || currentTemplate.id || "",
+      route_process: document.getElementById("printer-route-process").value || "",
+      route_priority: document.getElementById("printer-route-priority").value || "primary"
     };
     printers = printers.filter(function (item) { return item.id !== printer.id; });
     printers.unshift(printer);
     writeStore("label_platform_printers", printers);
     renderPrinters();
+    var selector = document.getElementById("printer-selected-id");
+    if (selector) selector.value = printer.id;
     setStatus("print-action-status", "printer saved", "chip ok");
+    return printer;
+  }
+
+  function deleteSelectedPrinter() {
+    var selected = getSelectedPrinter();
+    if (!selected) {
+      setStatus("print-action-status", "no printer selected", "chip warn");
+      return;
+    }
+    var printers = readStore("label_platform_printers", []).filter(function (printer) { return printer.id !== selected.id; });
+    writeStore("label_platform_printers", printers);
+    renderPrinters();
+    setStatus("print-action-status", "deleted " + selected.id, "chip warn");
   }
 
   function enqueuePrintTask() {
-    savePrinter();
+    var printer = savePrinter();
+    if (printer.status && printer.status !== "ready") {
+      setStatus("print-action-status", "printer " + printer.status + " - queued for attention", "chip warn");
+    }
     setStatus("print-action-status", "enqueueing", "chip warn");
     ensureTemplateSaved()
       .then(function () {
@@ -1421,16 +1526,23 @@ pub const PLAYGROUND_HTML: &str = r##"<!DOCTYPE html>
         var printBody = document.getElementById("print-task-body");
         var monitorBody = document.getElementById("monitor-print-body");
         var html = rows.length ? rows.map(function (task) {
-          return '<tr><td>' + escapeHtml(task.id) + '</td><td>' + escapeHtml(task.template_id) + '</td><td>' + escapeHtml(task.printer_id || "") + '</td><td><span class="chip warn">' + escapeHtml(task.status) + '</span></td></tr>';
-        }).join("") : '<tr><td colspan="4">No queued tasks.</td></tr>';
+          return '<tr><td>' + escapeHtml(task.id) + '<br><span class="field-kind-note">' + escapeHtml(task.request_id || "") + '</span></td><td>' + escapeHtml(task.template_id) + '</td><td>' + escapeHtml(task.printer_id || "") + '</td><td>' + escapeHtml(task.copies || 1) + '</td><td>' + escapeHtml(labelDataSummary(task.label_data)) + '</td><td><span class="chip warn">' + escapeHtml(task.status) + '</span></td></tr>';
+        }).join("") : '<tr><td colspan="6">No queued tasks.</td></tr>';
         if (printBody) printBody.innerHTML = html;
         if (monitorBody) {
           monitorBody.innerHTML = rows.length ? rows.map(function (task) {
-            return '<tr><td>' + escapeHtml(task.id) + '</td><td>' + escapeHtml(task.printer_id || "") + '</td><td>' + escapeHtml(task.status) + '</td></tr>';
+            return '<tr><td>' + escapeHtml(task.id) + '<br><span class="field-kind-note">' + escapeHtml(task.template_id) + '</span></td><td>' + escapeHtml(task.printer_id || "") + '</td><td>' + escapeHtml(task.status) + '<br><span class="field-kind-note">' + escapeHtml(labelDataSummary(task.label_data)) + '</span></td></tr>';
           }).join("") : '<tr><td colspan="3">No print logs.</td></tr>';
         }
       })
       .catch(function () {});
+  }
+
+  function labelDataSummary(data) {
+    if (!data || typeof data !== "object") return "";
+    return Object.keys(data).slice(0, 4).map(function (key) {
+      return key + "=" + String(data[key]);
+    }).join("; ");
   }
 
   function refreshLogs() {
@@ -1758,7 +1870,20 @@ pub const PLAYGROUND_HTML: &str = r##"<!DOCTYPE html>
     document.getElementById("api-response-box").textContent = curl;
   });
 
+  document.getElementById("new-printer-btn").addEventListener("click", clearPrinterForm);
   document.getElementById("save-printer-btn").addEventListener("click", savePrinter);
+  document.getElementById("delete-printer-btn").addEventListener("click", deleteSelectedPrinter);
+  document.getElementById("printer-selected-id").addEventListener("change", function () {
+    loadPrinterIntoForm(getSelectedPrinter());
+  });
+  document.getElementById("printer-list-body").addEventListener("click", function (event) {
+    if (event.target && event.target.classList.contains("select-printer-btn")) {
+      var printerId = event.target.getAttribute("data-printer-id");
+      var selector = document.getElementById("printer-selected-id");
+      if (selector) selector.value = printerId;
+      loadPrinterIntoForm(getSelectedPrinter());
+    }
+  });
   document.getElementById("enqueue-print-btn").addEventListener("click", enqueuePrintTask);
   document.getElementById("refresh-tasks-btn").addEventListener("click", function () {
     refreshDashboard();
@@ -1869,5 +1994,14 @@ mod tests {
             ".field-source, .field-api-name, .field-element-kind, .row-action { height: 38px"
         ));
         assert!(PLAYGROUND_HTML.contains(".field-kind-note { display: block; min-height: 30px"));
+    }
+
+    #[test]
+    fn workbench_exposes_multi_printer_management() {
+        assert!(PLAYGROUND_HTML.contains("new-printer-btn"));
+        assert!(PLAYGROUND_HTML.contains("delete-printer-btn"));
+        assert!(PLAYGROUND_HTML.contains("printer-template-binding"));
+        assert!(PLAYGROUND_HTML.contains("printer-route-process"));
+        assert!(PLAYGROUND_HTML.contains("labelDataSummary(task.label_data)"));
     }
 }

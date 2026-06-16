@@ -90,6 +90,9 @@ struct PrintTask {
     printer_id: Option<String>,
     delivery_mode: String,
     connection_mode: String,
+    copies: u32,
+    label_data: Value,
+    field_schema: Value,
     status: String,
     retry_count: u32,
 }
@@ -423,6 +426,9 @@ async fn print_label_handler(
         printer_id: req.printer_id,
         delivery_mode,
         connection_mode: connection_mode.clone(),
+        copies: req.copies.unwrap_or(1),
+        label_data: req.data,
+        field_schema: req.field_schema,
         status: "queued".to_string(),
         retry_count: 0,
     });
@@ -997,6 +1003,28 @@ mod tests {
     }
 
     #[test]
+    fn print_task_log_keeps_label_data_snapshot() {
+        let task = PrintTask {
+            id: "pt_1".to_string(),
+            request_id: "req_1".to_string(),
+            template_id: "tpl_1".to_string(),
+            printer_id: Some("warehouse_a_01".to_string()),
+            delivery_mode: "device_print".to_string(),
+            connection_mode: "print_server".to_string(),
+            copies: 2,
+            label_data: json!({ "hu": "578896087", "part": "06512515AA" }),
+            field_schema: json!([{ "name": "hu", "sample_value": "578896087" }]),
+            status: "queued".to_string(),
+            retry_count: 0,
+        };
+        let value = serde_json::to_value(task).expect("print task serializes");
+
+        assert_eq!(value["copies"], 2);
+        assert_eq!(value["label_data"]["hu"], "578896087");
+        assert_eq!(value["field_schema"][0]["name"], "hu");
+    }
+
+    #[test]
     fn print_connection_mode_is_whitelisted() {
         for mode in ["print_server", "direct_ip", "qz_tray", "pdf_only"] {
             assert!(
@@ -1036,6 +1064,9 @@ mod tests {
                 printer_id: Some("warehouse_a_01".to_string()),
                 delivery_mode: "device_print".to_string(),
                 connection_mode: "print_server".to_string(),
+                copies: 1,
+                label_data: json!({ "hu": format!("HU{}", idx) }),
+                field_schema: json!([]),
                 status: "queued".to_string(),
                 retry_count: if idx == 0 { 1 } else { 0 },
             });
@@ -1047,6 +1078,9 @@ mod tests {
             printer_id: Some("warehouse_a_01".to_string()),
             delivery_mode: "device_print".to_string(),
             connection_mode: "print_server".to_string(),
+            copies: 1,
+            label_data: json!({ "hu": "blocked" }),
+            field_schema: json!([]),
             status: "device_offline".to_string(),
             retry_count: 3,
         });
