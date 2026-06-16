@@ -194,8 +194,12 @@ pub const PLAYGROUND_HTML: &str = r##"<!DOCTYPE html>
     min-width: 100%; min-height: 436px; display: flex; align-items: center; justify-content: center;
     padding: 18px; box-sizing: border-box;
   }
+  #data-preview-viewport {
+    display: none; position: relative; flex: 0 0 auto;
+  }
+  #data-preview-viewport.visible { display: block; }
   #data-preview-img {
-    display: none; max-width: 100%; background: #fff; border: 1px solid var(--border);
+    display: none; position: absolute; left: 50%; top: 50%; max-width: none; background: #fff; border: 1px solid var(--border);
     box-shadow: 0 10px 26px rgba(1,102,106,0.16); transform-origin: center center;
   }
   #data-preview-img.visible { display: block; }
@@ -610,7 +614,9 @@ pub const PLAYGROUND_HTML: &str = r##"<!DOCTYPE html>
           <div id="data-preview-frame">
             <div class="data-preview-stage">
               <div id="data-preview-empty">Edit field values, then preview the generated label.</div>
-              <img id="data-preview-img" alt="Data mapped label preview">
+              <div id="data-preview-viewport">
+                <img id="data-preview-img" alt="Data mapped label preview">
+              </div>
             </div>
           </div>
         </div>
@@ -862,19 +868,34 @@ pub const PLAYGROUND_HTML: &str = r##"<!DOCTYPE html>
 
   function applyPreviewTransform() {
     var img = document.getElementById("data-preview-img");
+    var viewport = document.getElementById("data-preview-viewport");
+    var frame = document.getElementById("data-preview-frame");
     if (!img) return;
     var fitBtn = document.getElementById("preview-fit-btn");
+    var naturalWidth = img.naturalWidth || 600;
+    var naturalHeight = img.naturalHeight || 900;
+    var rotated = previewRotation === 90 || previewRotation === 270;
+    var baseBoxWidth = rotated ? naturalHeight : naturalWidth;
+    var baseBoxHeight = rotated ? naturalWidth : naturalHeight;
+    var scale = previewScale;
     if (previewFit) {
-      img.style.width = "";
-      img.style.maxWidth = "100%";
-      img.style.transform = "rotate(" + previewRotation + "deg)";
-    } else {
-      img.style.maxWidth = "none";
-      img.style.width = Math.max(80, Math.round((img.naturalWidth || 600) * previewScale)) + "px";
-      img.style.transform = "rotate(" + previewRotation + "deg)";
+      var frameWidth = frame ? Math.max(120, frame.clientWidth - 72) : 420;
+      var frameHeight = frame ? Math.max(120, frame.clientHeight - 72) : 420;
+      scale = Math.min(frameWidth / baseBoxWidth, frameHeight / baseBoxHeight, 1);
     }
+    scale = Math.max(0.05, scale);
+    var boxWidth = Math.max(80, Math.ceil(baseBoxWidth * scale));
+    var boxHeight = Math.max(80, Math.ceil(baseBoxHeight * scale));
+    if (viewport) {
+      viewport.style.width = boxWidth + "px";
+      viewport.style.height = boxHeight + "px";
+      viewport.classList.add("visible");
+    }
+    img.style.width = naturalWidth + "px";
+    img.style.height = naturalHeight + "px";
+    img.style.transform = "translate(-50%, -50%) rotate(" + previewRotation + "deg) scale(" + scale + ")";
     if (fitBtn) fitBtn.classList.toggle("active", previewFit);
-    setText("preview-zoom-label", previewFit ? "Fit" : Math.round(previewScale * 100) + "%");
+    setText("preview-zoom-label", previewFit ? "Fit" : Math.round(scale * 100) + "%");
     setText("preview-rotation-label", previewRotation + "°");
   }
 
@@ -1227,7 +1248,9 @@ pub const PLAYGROUND_HTML: &str = r##"<!DOCTYPE html>
       setStatus("data-preview-status", "preview ready", "chip ok");
     })
     .catch(function (err) {
+      var viewport = document.getElementById("data-preview-viewport");
       img.classList.remove("visible");
+      if (viewport) viewport.classList.remove("visible");
       empty.style.display = "block";
       empty.textContent = "Preview failed: " + err.message;
       setStatus("data-preview-status", "preview failed", "chip bad");
@@ -1772,5 +1795,14 @@ mod tests {
         assert!(PLAYGROUND_HTML.contains("value=\"pdf_only\""));
         assert!(PLAYGROUND_HTML.contains("print-server-endpoint"));
         assert!(PLAYGROUND_HTML.contains("connection_mode"));
+    }
+
+    #[test]
+    fn workbench_preview_uses_rotation_safe_viewport() {
+        assert!(PLAYGROUND_HTML.contains("data-preview-viewport"));
+        assert!(PLAYGROUND_HTML.contains("baseBoxWidth = rotated ? naturalHeight : naturalWidth"));
+        assert!(PLAYGROUND_HTML.contains("translate(-50%, -50%) rotate("));
+        assert!(PLAYGROUND_HTML.contains("viewport.style.width = boxWidth"));
+        assert!(PLAYGROUND_HTML.contains("viewport.style.height = boxHeight"));
     }
 }
