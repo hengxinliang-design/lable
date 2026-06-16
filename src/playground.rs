@@ -808,7 +808,7 @@ pub const PLAYGROUND_HTML: &str = r##"<!DOCTYPE html>
   var statusTime = document.getElementById("status-time");
 
   var pngBlobUrl = null;
-  var currentTemplate = { id: "", name: "", content: "" };
+  var currentTemplate = { id: "", name: "", content: "", width_mm: 0, height_mm: 0, dpmm: 0 };
   var currentFields = [];
   var dataPreviewBlobUrl = null;
   var previewScale = 1;
@@ -829,6 +829,33 @@ pub const PLAYGROUND_HTML: &str = r##"<!DOCTYPE html>
       .replace(/[^a-z0-9]+/g, "_")
       .replace(/^_+|_+$/g, "")
       .slice(0, 54) || "template";
+  }
+
+  function inferDpmmFromTemplate(content, name, widthMm) {
+    var source = String(name || "") + "\n" + String(content || "");
+    if (/(^|[^0-9])600([^0-9]|$)|600\s*dpi/i.test(source)) return 24;
+    if (/(^|[^0-9])300([^0-9]|$)|300\s*dpi/i.test(source)) return 12;
+    var pw = /\^PW\s*(\d+)/i.exec(source);
+    if (pw && widthMm > 0) {
+      var inferred = parseInt(pw[1], 10) / (widthMm / 25.4);
+      if (inferred >= 22) return 24;
+      if (inferred >= 10) return 12;
+      if (inferred >= 7) return 8;
+      if (inferred >= 5) return 6;
+    }
+    return 0;
+  }
+
+  function resolveTemplateParams(base, content, name) {
+    var params = {
+      fmt: base.fmt,
+      w_mm: base.w_mm,
+      h_mm: base.h_mm,
+      dpmm: base.dpmm
+    };
+    var inferredDpmm = inferDpmmFromTemplate(content, name, params.w_mm);
+    if (inferredDpmm) params.dpmm = inferredDpmm;
+    return params;
   }
 
   function readStore(key, fallback) {
@@ -923,7 +950,9 @@ pub const PLAYGROUND_HTML: &str = r##"<!DOCTYPE html>
   }
 
   function importTemplate(name, content) {
-    var params = getParams();
+    var params = resolveTemplateParams(getParams(), content, name);
+    var dpmmSelect = document.getElementById("dpmm");
+    if (dpmmSelect) dpmmSelect.value = String(params.dpmm);
     var id = "tpl_" + slugify(name);
     return fetch("/api/v1/templates/import", {
       method: "POST",
@@ -942,7 +971,14 @@ pub const PLAYGROUND_HTML: &str = r##"<!DOCTYPE html>
       return res.json();
     })
     .then(function (body) {
-      currentTemplate = { id: body.id || id, name: name, content: content };
+      currentTemplate = {
+        id: body.id || id,
+        name: name,
+        content: content,
+        width_mm: params.w_mm,
+        height_mm: params.h_mm,
+        dpmm: params.dpmm
+      };
       updateTemplateContext();
       extractFields();
       buildApiRequest("pdf_preview");
@@ -1224,6 +1260,10 @@ pub const PLAYGROUND_HTML: &str = r##"<!DOCTYPE html>
 
   function previewFieldMappedLabel() {
     var params = getParams();
+    if (currentTemplate.width_mm) params.w_mm = currentTemplate.width_mm;
+    if (currentTemplate.height_mm) params.h_mm = currentTemplate.height_mm;
+    if (currentTemplate.dpmm) params.dpmm = currentTemplate.dpmm;
+    params = resolveTemplateParams(params, input.value, currentTemplate.name);
     var img = document.getElementById("data-preview-img");
     var empty = document.getElementById("data-preview-empty");
     setStatus("data-preview-status", "rendering", "chip warn");
@@ -1533,7 +1573,9 @@ pub const PLAYGROUND_HTML: &str = r##"<!DOCTYPE html>
     var zpl = input.value.trim();
     if (!zpl) { showError("Editor is empty — paste some ZPL or EPL first."); return; }
 
-    var params = getParams();
+    var params = resolveTemplateParams(getParams(), zpl, currentTemplate.name);
+    var dpmmSelect = document.getElementById("dpmm");
+    if (dpmmSelect) dpmmSelect.value = String(params.dpmm);
     clearPreview();
     loading.classList.add("active");
     btn.disabled = true;
@@ -1581,7 +1623,9 @@ pub const PLAYGROUND_HTML: &str = r##"<!DOCTYPE html>
   dlPdf.addEventListener("click", function () {
     var zpl = input.value.trim();
     if (!zpl) return;
-    var params = getParams();
+    var params = resolveTemplateParams(getParams(), zpl, currentTemplate.name);
+    var dpmmSelect = document.getElementById("dpmm");
+    if (dpmmSelect) dpmmSelect.value = String(params.dpmm);
     dlPdf.classList.add("loading");
     dlPdf.disabled = true;
 
@@ -1804,5 +1848,13 @@ mod tests {
         assert!(PLAYGROUND_HTML.contains("translate(-50%, -50%) rotate("));
         assert!(PLAYGROUND_HTML.contains("viewport.style.width = boxWidth"));
         assert!(PLAYGROUND_HTML.contains("viewport.style.height = boxHeight"));
+    }
+
+    #[test]
+    fn workbench_infers_300dpi_templates() {
+        assert!(PLAYGROUND_HTML.contains("inferDpmmFromTemplate"));
+        assert!(PLAYGROUND_HTML.contains("300\\s*dpi"));
+        assert!(PLAYGROUND_HTML.contains("return 12"));
+        assert!(PLAYGROUND_HTML.contains("resolveTemplateParams(getParams(), zpl"));
     }
 }
