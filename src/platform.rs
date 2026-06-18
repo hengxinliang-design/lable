@@ -1,7 +1,10 @@
 use std::collections::HashMap;
+use std::fs;
 use std::io::Cursor;
+use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use axum::body::Bytes;
 use axum::extract::{Path, State};
@@ -163,6 +166,16 @@ pub struct PrintRequest {
 }
 
 #[derive(Debug, Deserialize)]
+struct ExportDataConfigRequest {
+    output_dir: Option<String>,
+    config_name: String,
+    template_id: Option<String>,
+    template_name: Option<String>,
+    zpl_content: String,
+    config: Value,
+}
+
+#[derive(Debug, Deserialize)]
 struct ApiExampleRequest {
     template_id: String,
     operation: String,
@@ -218,6 +231,7 @@ pub fn router(state: PlatformState) -> Router {
         .route("/api/v1/labels/render", post(render_label_handler))
         .route("/api/v1/labels/test-pdf", post(test_pdf_handler))
         .route("/api/v1/labels/print", post(print_label_handler))
+        .route("/api/v1/data-configs/export", post(export_data_config))
         .route("/api/v1/api-examples", post(api_example_handler))
         .route("/api/v1/requests/{request_id}/output", get(get_output))
         .route("/api/v1/logs/api-requests", get(list_api_logs))
@@ -346,6 +360,49 @@ async fn test_pdf_handler(
             .into_response()
         }
         Err((status, code, message)) => api_error(&request_id, status, code, message),
+    }
+}
+
+async fn export_data_config(
+    State(state): State<PlatformState>,
+    headers: HeaderMap,
+    Json(req): Json<ExportDataConfigRequest>,
+) -> impl IntoResponse {
+    let request_id = request_id(&state, &headers);
+    if req.zpl_content.trim().is_empty() {
+        return api_error(
+            &request_id,
+            StatusCode::BAD_REQUEST,
+            "VALIDATION_REQUIRED_FIELD",
+            "zpl_content is required",
+        );
+    }
+
+    match write_data_config_export(&req) {
+        Ok((config_path, zpl_path)) => {
+            let mut store = state.inner.store.lock().expect("store lock");
+            log_api(
+                &mut store,
+                request_id.clone(),
+                "data-configs.export",
+                "success",
+                200,
+                None,
+            );
+            Json(json!({
+                "request_id": request_id,
+                "status": "success",
+                "config_path": config_path,
+                "zpl_path": zpl_path
+            }))
+            .into_response()
+        }
+        Err(message) => api_error_owned(
+            &request_id,
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "EXPORT_FAILED",
+            message,
+        ),
     }
 }
 
@@ -833,6 +890,75 @@ fn json_value_to_label_value(value: &Value) -> String {
         .unwrap_or_else(|| value.to_string())
 }
 
+fn write_data_config_export(req: &ExportDataConfigRequest) -> Result<(String, String), String> {
+    let output_dir = export_output_dir(req.output_dir.as_deref())?;
+    fs::create_dir_all(&output_dir).map_err(|err| format!("create export directory: {err}"))?;
+
+    let timestamp = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map_err(|err| format!("clock error: {err}"))?
+        .as_secs();
+    let base_name = sanitize_export_name(&format!(
+        "{}_{}_{}",
+        req.config_name,
+        req.template_name.as_deref().unwrap_or("template"),
+        timestamp
+    ));
+    let config_path = output_dir.join(format!("{base_name}.json"));
+    let zpl_path = output_dir.join(format!("{base_name}.zpl"));
+
+    let export_payload = json!({
+        "config_name": req.config_name,
+        "template_id": req.template_id,
+        "template_name": req.template_name,
+        "config": req.config,
+        "zpl_file": zpl_path.to_string_lossy()
+    });
+    let config_bytes = serde_json::to_vec_pretty(&export_payload)
+        .map_err(|err| format!("serialize config: {err}"))?;
+    fs::write(&config_path, config_bytes).map_err(|err| format!("write config: {err}"))?;
+    fs::write(&zpl_path, req.zpl_content.as_bytes()).map_err(|err| format!("write zpl: {err}"))?;
+
+    Ok((
+        config_path.to_string_lossy().to_string(),
+        zpl_path.to_string_lossy().to_string(),
+    ))
+}
+
+fn export_output_dir(raw: Option<&str>) -> Result<PathBuf, String> {
+    let value = raw.unwrap_or("").trim();
+    if value.is_empty() {
+        return std::env::current_dir()
+            .map(|dir| dir.join("exports").join("data-source-configs"))
+            .map_err(|err| format!("resolve current directory: {err}"));
+    }
+    if let Some(rest) = value.strip_prefix("~/") {
+        if let Some(home) = std::env::var_os("HOME") {
+            return Ok(PathBuf::from(home).join(rest));
+        }
+    }
+    Ok(PathBuf::from(value))
+}
+
+fn sanitize_export_name(value: &str) -> String {
+    let cleaned: String = value
+        .chars()
+        .map(|ch| {
+            if ch.is_ascii_alphanumeric() || matches!(ch, '-' | '_') {
+                ch
+            } else {
+                '_'
+            }
+        })
+        .collect();
+    let trimmed = cleaned.trim_matches('_');
+    if trimmed.is_empty() {
+        "data_source_config".to_string()
+    } else {
+        trimmed.chars().take(96).collect()
+    }
+}
+
 fn api_error(
     request_id: &str,
     status: StatusCode,
@@ -847,6 +973,27 @@ fn api_error(
             error: ErrorDetail {
                 code,
                 message: message.to_string(),
+                details: Vec::new(),
+            },
+        }),
+    )
+        .into_response()
+}
+
+fn api_error_owned(
+    request_id: &str,
+    status: StatusCode,
+    code: &'static str,
+    message: String,
+) -> axum::response::Response {
+    (
+        status,
+        Json(ErrorBody {
+            request_id: request_id.to_string(),
+            status: "error",
+            error: ErrorDetail {
+                code,
+                message,
                 details: Vec::new(),
             },
         }),
@@ -940,6 +1087,32 @@ mod tests {
         );
 
         assert_eq!(out, "^FDP99999999AA^FS^FDQ888^FS");
+    }
+
+    #[test]
+    fn data_config_export_writes_json_and_zpl_files() {
+        let dir = std::env::temp_dir().join(format!(
+            "labelize_export_test_{}",
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .expect("clock")
+                .as_nanos()
+        ));
+        let req = ExportDataConfigRequest {
+            output_dir: Some(dir.to_string_lossy().to_string()),
+            config_name: "Default workflow mapping".to_string(),
+            template_id: Some("tpl_dcx".to_string()),
+            template_name: Some("Z5Z_01_DCX_300 single".to_string()),
+            zpl_content: "^XA^FD1000000BB^FS^XZ".to_string(),
+            config: json!({ "fields": [{ "apiName": "field_1", "value": "1000000BB" }] }),
+        };
+
+        let (config_path, zpl_path) = write_data_config_export(&req).expect("export writes files");
+        let config_text = fs::read_to_string(config_path).expect("config file readable");
+        let zpl_text = fs::read_to_string(zpl_path).expect("zpl file readable");
+
+        assert!(config_text.contains("Default workflow mapping"));
+        assert_eq!(zpl_text, "^XA^FD1000000BB^FS^XZ");
     }
 
     #[test]

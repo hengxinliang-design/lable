@@ -578,6 +578,7 @@ pub const PLAYGROUND_HTML: &str = r##"<!DOCTYPE html>
       <div class="form-field"><label for="config-customer">Customer</label><input id="config-customer" placeholder="SAIC USA"></div>
       <div class="form-field"><label for="config-warehouse">Warehouse</label><input id="config-warehouse" placeholder="WH-A"></div>
       <div class="form-field"><label for="config-process">Business Process</label><input id="config-process" placeholder="Inbound / Shipping"></div>
+      <div class="form-field"><label for="config-export-dir">Export Folder</label><input id="config-export-dir" value="/Users/hengxinliang/project/labelize/exports/data-source-configs"></div>
     </div>
     <div class="action-row">
       <button id="extract-fields-btn" class="action-btn dark">Extract Fields From ZPL</button>
@@ -1191,6 +1192,33 @@ pub const PLAYGROUND_HTML: &str = r##"<!DOCTYPE html>
     renderConfigList();
     buildApiRequest("pdf_preview");
     setStatus("config-status", "saved", "chip ok");
+    return cfg;
+  }
+
+  function exportDataConfig(cfg) {
+    var outputDir = document.getElementById("config-export-dir").value || "";
+    return fetch("/api/v1/data-configs/export", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        output_dir: outputDir,
+        config_name: cfg.name,
+        template_id: currentTemplate.id,
+        template_name: currentTemplate.name,
+        zpl_content: buildMappedZpl(),
+        config: cfg
+      })
+    })
+    .then(function (res) {
+      return res.json().then(function (body) {
+        if (!res.ok) throw new Error(body.error && body.error.message ? body.error.message : "export failed");
+        return body;
+      });
+    })
+    .then(function (body) {
+      setStatus("config-status", "saved to " + body.zpl_path, "chip ok");
+      return body;
+    });
   }
 
   function renderConfigList() {
@@ -1853,7 +1881,10 @@ pub const PLAYGROUND_HTML: &str = r##"<!DOCTYPE html>
   document.getElementById("save-config-btn").addEventListener("click", function () {
     ensureTemplateIdForConfig()
       .then(function () {
-        saveDataConfig();
+        var cfg = saveDataConfig();
+        return exportDataConfig(cfg);
+      })
+      .then(function () {
         previewFieldMappedLabel();
       })
       .catch(function (err) { setStatus("config-status", err.message, "chip bad"); });
@@ -2030,5 +2061,13 @@ mod tests {
         assert!(PLAYGROUND_HTML.contains("document.getElementById(\"build-api-request-btn\").addEventListener(\"click\", function () {\n    ensureTemplateIdForConfig()"));
         assert!(PLAYGROUND_HTML
             .contains("function postApiRequest(mode) {\n    ensureTemplateIdForConfig()"));
+    }
+
+    #[test]
+    fn data_config_save_exports_files() {
+        assert!(PLAYGROUND_HTML.contains("config-export-dir"));
+        assert!(PLAYGROUND_HTML.contains("/api/v1/data-configs/export"));
+        assert!(PLAYGROUND_HTML.contains("zpl_content: buildMappedZpl()"));
+        assert!(PLAYGROUND_HTML.contains("saved to \" + body.zpl_path"));
     }
 }
